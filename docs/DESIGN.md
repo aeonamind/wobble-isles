@@ -275,6 +275,13 @@ Names are working titles. ⭐ marks the M3 launch set.
 | Hosting | Phase 1: one Singapore VPS (about 30–50 ms from Vietnam). Phase 2: multiple processes and regions, Colyseus proxy, matchmaker | Latency first, then scale |
 | Quality | Vitest for simulation and rules. Playwright for multi-client end-to-end. `@colyseus/loadtest` for 32 bots. CI on every PR | |
 
+**Platform strategy (decided 2026-11-28):** **web first.** The browser build is the primary product (instant play via link).
+Native apps come later by wrapping the same client: **Capacitor** for Android/iOS, **Tauri** for desktop/Steam.
+Because mobile WebView performance is the main risk of this stack, M1 includes a **mobile performance spike**:
+an island scene with 8 animated Wobblers, Rapier physics and shadows, packaged with Capacitor and run on a real mid-range Android phone.
+**Gate:** a stable ≥ 50 FPS with no thermal throttling after 10 minutes keeps this stack for apps; otherwise re-evaluate the app client (e.g. Godot 4) before M4.
+The design docs, rules, tuning values and glTF asset pipeline are engine-agnostic either way.
+
 **Budgets:**
 - Server: ≤ 4 ms simulation per tick for 32 players.
 - Bandwidth: ≤ 25 KB/s per client at 32 players.
@@ -288,7 +295,7 @@ Each milestone is one or more PRs, merged only after a real playtest.
 | Milestone | Scope | Exit criteria |
 |---|---|---|
 | **M0 Design** | This document, ART.md, ASSETS.md, repo skeleton | Owner approves |
-| **M1 Feel** | Single-player sandbox: controller, jump, dive, grab and throw (with dummies), ragdoll, surfaces, 3 hazard types, camera, gamepad, tuning panel | "Fun to mess around in for 10 minutes" from 3 testers |
+| **M1 Feel** | Single-player sandbox: controller, jump, dive, grab and throw (with dummies), ragdoll, surfaces, 3 hazard types, camera, gamepad, tuning panel. Mobile performance spike (see §8) | "Fun to mess around in for 10 minutes" from 3 testers |
 | **M2 Netcode** | Authoritative server, prediction and reconciliation, grabbing across the network, latency simulator, bot clients | 8 players smooth at 150 ms simulated latency. Measured CPU and bandwidth for 32 bots |
 | **M3 Party Mode** | Lobby, Show Director, stars and catch-up, Gremlins, the 6 ⭐ rounds | A full 6-player show playtested, with feedback logged |
 | **M4 Polish** | Audio and music, UI, Fail Cam, awards, settings, touch, PWA, performance pass | Performance budgets met. A playtest show with no blocker bugs |
@@ -309,3 +316,4 @@ After M1, M3 and every new round:
 2. Account system: guest names only for Party mode. Accounts needed for Show mode and cosmetics.
 3. Character artist: built in-house versus commissioning a hero character. Decide at M4.
 4. Licensing of the codebase (private versus open source).
+5. Native app client: keep the web client wrapped (default) or switch engine, decided by the M1 mobile performance spike.

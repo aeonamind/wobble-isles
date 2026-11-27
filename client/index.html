@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#FFB3D9" />
+    <link rel="icon" href="/favicon.svg" />
+    <title>Wobble Isles — Feel Sandbox</title>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="loading">Loading…</div>
+
+    <div id="click-to-play" class="overlay-card">
+      <h1>Wobble Isles</h1>
+      <p class="sub">M1 · Feel Sandbox</p>
+      <p>Click to play</p>
+    </div>
+
+    <div id="perf" title="P toggles"><span id="perf-fps">-- FPS</span><span id="perf-ping">ping —</span><span id="perf-q" class="off">Auto</span></div>
+    <pre id="stats" hidden></pre>
+    <pre id="bench" hidden></pre>
+
+    <div id="help">
+      <b>WASD</b> move · <b>Mouse</b> camera · <b>Space</b> jump · <b>Shift</b>/<b>RMB</b> dive<br />
+      Hold <b>LMB</b>/<b>E</b> grab · release to throw · <b>R</b> respawn<br />
+      <b>`</b> tuning · <b>F3</b> stats · <b>P</b> FPS/ping · <b>G</b> graphics · <b>H</b> hide help · Gamepad supported
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

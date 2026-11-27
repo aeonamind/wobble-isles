@@ -12,17 +12,24 @@ import { PLAYER_COLORS, WobblerView } from "./render/wobbler";
 import { Hud } from "./ui/hud";
 import { createTuningPanel, type DebugOptions } from "./ui/tuning-panel";
 
-export type Quality = "low" | "medium" | "high";
+export type Quality = "auto" | "low" | "medium" | "high";
+export const QUALITY_ORDER: Quality[] = ["auto", "low", "medium", "high"];
 
 export interface GameOptions {
   quality: Quality;
   bench: boolean;
 }
 
-const QUALITY: Record<Quality, { pixelRatio: number; shadows: number; antialias: boolean }> = {
-  low: { pixelRatio: 1, shadows: 0, antialias: false },
-  medium: { pixelRatio: 1.5, shadows: 1024, antialias: true },
-  high: { pixelRatio: 2, shadows: 2048, antialias: true },
+/**
+ * Render presets. Fill rate is the bottleneck on integrated GPUs, so the big levers are
+ * resolution scale, MSAA and shadow-map filtering. "auto" starts at medium and lets the
+ * dynamic-resolution scaler trade sharpness for frame rate.
+ */
+const QUALITY: Record<Quality, { scale: number; minScale: number; shadows: number; softShadows: boolean; antialias: boolean }> = {
+  auto: { scale: 1, minScale: 0.6, shadows: 1024, softShadows: false, antialias: false },
+  low: { scale: 0.75, minScale: 0.75, shadows: 0, softShadows: false, antialias: false },
+  medium: { scale: 1, minScale: 1, shadows: 1024, softShadows: false, antialias: false },
+  high: { scale: 2, minScale: 2, shadows: 2048, softShadows: true, antialias: true },
 };
 
 interface Prev {
@@ -51,6 +58,10 @@ export class Game {
   private debug: DebugOptions = { timeScale: 1, showColliders: false, reduceMotion: false };
   private debugLines: THREE.LineSegments | null = null;
   private bench: { start: number; frames: number[]; done: boolean } | null = null;
+  private scale = 1;
+  private maxScale = 1;
+  private scaler = { time: 0, frames: 0, good: 0 };
+  readonly gpu: string;
 
   constructor(
     private container: HTMLElement,
@@ -58,10 +69,13 @@ export class Game {
   ) {
     const q = QUALITY[opts.quality];
     this.renderer = new THREE.WebGLRenderer({ antialias: q.antialias, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, q.pixelRatio));
+    this.maxScale = opts.quality === "auto" ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, q.scale);
+    this.scale = opts.quality === "auto" ? Math.min(1, this.maxScale) : this.maxScale;
+    this.renderer.setPixelRatio(this.scale);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = q.shadows > 0;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = q.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    this.gpu = gpuName(this.renderer);
     container.appendChild(this.renderer.domElement);
 
     this.sim = new Sim(SANDBOX, 1);
@@ -276,7 +290,16 @@ export class Game {
 
     this.updateDebugLines();
     this.renderer.render(this.scene, this.rig.camera);
-    this.hud.frame(realDt, this.player, `wobblers ${this.sim.wobblers.length}  calls ${this.renderer.info.render.calls}  tris ${this.renderer.info.render.triangles}`);
+    this.hud.frame(
+      realDt,
+      this.player,
+      `wobblers ${this.sim.wobblers.length}  calls ${this.renderer.info.render.calls}  tris ${this.renderer.info.render.triangles}
+` +
+        `quality ${this.opts.quality}  scale ${this.scale.toFixed(2)}x  shadows ${this.renderer.shadowMap.enabled ? "on" : "off"}
+${this.gpu}`,
+    );
+    this.hud.setQuality(this.opts.quality === "auto" ? `Auto ${Math.round(this.scale * 100)}%` : this.opts.quality[0].toUpperCase() + this.opts.quality.slice(1));
+    this.updateScaler(realDt);
     this.updateBench(realDt);
   }
 
@@ -304,6 +327,45 @@ export class Game {
     this.debugLines.geometry.setAttribute("color", new THREE.BufferAttribute(colors, 4));
   }
 
+  /**
+   * Dynamic resolution (auto quality only): drop render scale when under 50 FPS,
+   * creep back up after 3 good seconds; as a last resort turn shadows off.
+   */
+  private updateScaler(dt: number) {
+    if (this.opts.quality !== "auto" || this.opts.bench) return;
+    const s = this.scaler;
+    s.time += dt;
+    s.frames++;
+    if (s.time < 1) return;
+    const fps = s.frames / s.time;
+    s.time = 0;
+    s.frames = 0;
+    const min = QUALITY.auto.minScale;
+    if (fps < 50) {
+      s.good = 0;
+      if (this.scale > min + 0.001) this.setScale(Math.max(min, this.scale - (fps < 35 ? 0.2 : 0.1)));
+      else if (this.renderer.shadowMap.enabled && fps < 40) this.setShadows(false);
+    } else if (fps > 57 && ++s.good >= 3 && this.scale < this.maxScale - 0.001) {
+      s.good = 0;
+      this.setScale(Math.min(this.maxScale, this.scale + 0.1));
+    }
+  }
+
+  private setScale(scale: number) {
+    this.scale = scale;
+    this.renderer.setPixelRatio(scale);
+    this.resize();
+  }
+
+  private setShadows(on: boolean) {
+    this.renderer.shadowMap.enabled = on;
+    this.sun.castShadow = on;
+    this.scene.traverse((o) => {
+      const m = (o as THREE.Mesh).material;
+      if (m) (Array.isArray(m) ? m : [m]).forEach((mat) => (mat.needsUpdate = true));
+    });
+  }
+
   /** Mobile performance spike (DESIGN.md §8): 3 s warm-up, then 30 s of frame times. */
   private updateBench(dt: number) {
     const b = this.bench;
@@ -328,7 +390,7 @@ export class Game {
       triangles: this.renderer.info.render.triangles,
       pixelRatio: this.renderer.getPixelRatio(),
       viewport: `${innerWidth}x${innerHeight}`,
-      gpu: gpuName(this.renderer),
+      gpu: this.gpu,
     };
     console.log("BENCH", JSON.stringify(result));
     this.hud.benchReport(

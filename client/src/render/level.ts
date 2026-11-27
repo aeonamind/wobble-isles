@@ -84,7 +84,7 @@ export class LevelView {
     mesh.rotation.y = s.yaw ?? 0;
     mesh.rotation.x = s.tilt ?? 0;
     mesh.receiveShadow = true;
-    mesh.castShadow = true;
+    mesh.castShadow = false; // static blocks only receive; moving things cast
     addOutline(mesh, 0.05);
 
     // Big islands get a chunky "frosting drip" underside so they read as floating.

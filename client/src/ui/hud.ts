@@ -32,6 +32,11 @@ export class Hud {
     this.ping = ms;
   }
 
+  setQuality(label: string) {
+    const el = $("perf-q");
+    if (el.textContent !== label) el.textContent = label;
+  }
+
   setLocked(locked: boolean) {
     $("click-to-play").hidden = locked;
   }

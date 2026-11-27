@@ -20,7 +20,7 @@ npm test           # simulation tests
 **Controls:** WASD move · mouse camera · Space jump · Shift / right mouse dive · hold left mouse / E to grab, release to throw · R respawn.
 Gamepad: left stick move, right stick camera, A jump, X dive, RT grab.
 
-**Debug:** <kbd>`</kbd> toggles the tuning panel (values persist in localStorage; "Copy tuning JSON" to commit them) · F3 stats · H hides help.
+**Debug:** <kbd>`</kbd> toggles the tuning panel (values persist in localStorage; "Copy tuning JSON" to commit them) · F3 stats (incl. GPU name) · P FPS/ping · G cycles graphics quality (Auto → Low → Medium → High). Auto lowers render resolution, then shadows, to hold 50+ FPS.
 
 **Performance spike:** open `/?bench` (optionally `&q=low|medium|high`). After a 3 s warm-up it records 30 s with 9 Wobblers
 and prints avg FPS, 1% low and p95 frame time. The mobile gate is ≥ 50 FPS average.

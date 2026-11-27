@@ -10,5 +10,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #ffb3d9; fon
 #help { position: fixed; left: 12px; bottom: 12px; padding: 10px 14px; font-size: 13px; line-height: 1.5; color: #3a2450; background: #fff8fbdd; border: 2px solid #3a2450; border-radius: 14px; }
 #stats, #bench { position: fixed; left: 12px; top: 12px; margin: 0; padding: 8px 12px; font: 12px/1.5 ui-monospace, monospace; color: #fff; background: #3a2450cc; border-radius: 10px; }
 #bench { left: 50%; top: 16px; transform: translateX(-50%); font-size: 14px; }
+#perf { position: fixed; right: 12px; bottom: 12px; display: flex; gap: 10px; padding: 5px 12px; font: 700 13px/1.4 ui-monospace, monospace; color: #fff; background: #3a2450cc; border-radius: 999px; pointer-events: none; }
+#perf .good { color: #7dffb0; } #perf .ok { color: #ffe156; } #perf .bad { color: #ff7a7a; } #perf .off { color: #c9b8d9; }
 [hidden] { display: none !important; }
 .lil-gui.root { --font-size: 12px; top: 12px; right: 12px; position: fixed; }

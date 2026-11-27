@@ -74,6 +74,7 @@ export interface Wobbler {
   respawnPoint: Vec3;
   outUntil: number;
   invulnUntil: number;
+  squashedUntil: number;
   hazardCooldown: Map<number, number>;
   aiTime: number;
   home: Vec3;
@@ -89,6 +90,7 @@ export type SimEvent =
   | { type: "throw"; id: number; target: number }
   | { type: "release"; id: number; target: number }
   | { type: "tackle"; id: number; target: number }
+  | { type: "stomp"; id: number; target: number; boosted: boolean }
   | { type: "hazardHit"; id: number; hazard: number; force: number }
   | { type: "ballHit"; id: number; force: number }
   | { type: "fall"; id: number }
@@ -197,6 +199,7 @@ export class Sim {
       respawnPoint: { ...pos },
       outUntil: 0,
       invulnUntil: 0,
+      squashedUntil: 0,
       hazardCooldown: new Map(),
       aiTime: this.random() * 10,
       home: { ...pos },
@@ -280,6 +283,7 @@ export class Sim {
       let speed = T.move.runSpeed;
       if (surface === "sticky") speed *= T.surface.stickySpeedMul;
       if (w.holding != null) speed *= T.grab.holdSlowdown;
+      if (t < w.squashedUntil) speed *= T.stomp.squashSlow;
       let accel: number;
       if (w.grounded) {
         accel = hasInput ? T.move.groundAccel : T.move.groundDecel;
@@ -378,6 +382,11 @@ export class Sim {
       const other = this.wobblerByCollider.get(c.collider.handle);
       if (other && !bumped.has(other)) {
         bumped.add(other);
+        // Coming down on someone's head: their jelly dome is a trampoline. Nobody can stand on a head.
+        if (n.y >= TUNING.stomp.minNormalY && w.vel.y <= 0) {
+          this.stomp(w, other, t);
+          continue;
+        }
         this.bump(w, other);
       }
       // Cancel velocity into walls and ceilings (normal1 points from the obstacle toward us).
@@ -498,6 +507,37 @@ export class Sim {
       this.events.push({ type: "ballHit", id: w.id, force: rel });
       this.knock(w, imp);
     }
+  }
+
+  /** Head bounce (DESIGN.md §3.6): the stomper springs up, the stomped one is squashed flat for a moment. */
+  private stomp(w: Wobbler, other: Wobbler, t: number) {
+    const T = TUNING.stomp;
+    const boosted = t - w.jumpPressedAt <= TUNING.jump.bufferTime;
+    if (boosted) w.jumpPressedAt = -Infinity;
+    w.vel.y = Math.sqrt(2 * TUNING.jump.gravity * (boosted ? T.boostHeight : T.height));
+    w.grounded = false;
+    w.jumpedSinceGround = true;
+    // Slide off the dome: away from their centre, or forward if perfectly centred.
+    let dx = w.pos.x - other.pos.x;
+    let dz = w.pos.z - other.pos.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.05) {
+      dx = Math.sin(w.facing);
+      dz = Math.cos(w.facing);
+    } else {
+      dx /= d;
+      dz /= d;
+    }
+    const along = w.vel.x * dx + w.vel.z * dz;
+    if (along < T.slideOff) {
+      w.vel.x += dx * (T.slideOff - along);
+      w.vel.z += dz * (T.slideOff - along);
+    }
+    if (other.state !== "out" && other.state !== "held") {
+      other.squashedUntil = t + T.squashTime;
+      if (!other.grounded) other.vel.y = Math.min(other.vel.y, -3);
+    }
+    this.events.push({ type: "stomp", id: w.id, target: other.id, boosted });
   }
 
   private bump(w: Wobbler, other: Wobbler) {

@@ -58,6 +58,7 @@ export interface WobblerFrame {
   grabbing: boolean;
   holding: boolean;
   invulnerable: boolean;
+  squashed: boolean;
 }
 
 /** A critically-damped-ish spring for procedural squash & wobble. */
@@ -162,7 +163,11 @@ export class WobblerView {
   }
 
   /** Visual reactions to simulation events. */
-  impact(kind: "land" | "hit" | "bounce" | "jump", strength = 1) {
+  impact(kind: "land" | "hit" | "bounce" | "jump" | "stomped", strength = 1) {
+    if (kind === "stomped") {
+      this.squashSpring.kick(-12);
+      this.setExpression("dizzy", 0.7);
+    }
     if (kind === "land") this.squashSpring.kick(-Math.min(6, 1.5 + strength * 0.35));
     if (kind === "jump") this.squashSpring.kick(4);
     if (kind === "bounce") this.squashSpring.kick(-7);
@@ -255,6 +260,9 @@ export class WobblerView {
       const wob = new THREE.Euler(this.pitch + this.wobbleX.update(0, dt) * 0.12, 0, this.roll + this.wobbleZ.update(0, dt) * 0.12);
       this.tilt.quaternion.setFromEuler(wob).premultiply(this.tumble);
     }
+
+    // Flattened like a pancake after being stomped
+    if (f.squashed) squashTarget = -0.45;
 
     // Run gait: hop + squash, alternating feet
     const running = f.state === "normal" && f.grounded && hSpeed > 0.6;

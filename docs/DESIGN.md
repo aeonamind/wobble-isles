@@ -116,6 +116,7 @@ The contestant is a **kinematic capsule** driven by our own controller code runn
 | Throw | 6 m/s horizontal, 4 m/s up | Thrown player ragdolls |
 | Ragdoll | 0.8–1.4 s, then auto get-up | Triggered by big hits (knockback ≥ 5.5 m/s), hard landings over 16 m/s, tackles, being thrown |
 | Step / slope | 0.3 m step, 50° max slope | |
+| Head bounce | 2.0 m (3.2 m with jump), 2.5 m/s slide-off | Stomped Wobbler: 0.7 s at 45% speed |
 | Safety caps | 25 m/s horizontal, 18 m/s upward knockback | Upward kicks never stack |
 
 ### 3.3 Surface materials (variety without new rules)
@@ -140,6 +141,18 @@ The contestant is a **kinematic capsule** driven by our own controller code runn
 ### 3.5 Hazards are functions of time
 
 Every scripted hazard (sweepers, hammers, presses, tilting discs, conveyors) is a **pure function of round time plus a seed**. Server and clients compute the same transform locally, so hazards cost no bandwidth and never stutter. Only player-affected objects (balls, floes, eggs) are simulated and synced.
+
+### 3.6 Signature mechanics (what Wobble Isles has that its genre peers don't)
+
+The genre core (run, jump, dive, grab) is shared with every obstacle-course party game. These three mechanics are ours, and all of them grow out of the contestants being **jelly**:
+
+| Mechanic | Status | Rule | Why it's fun |
+|---|---|---|---|
+| **Head Bounce** | Prototype in M1 sandbox | Every Wobbler's head is a trampoline. Land on someone and you spring up 2.0 m (3.2 m if you press jump as you land) and slide off the dome; they are squashed flat for 0.7 s and move at 45% speed. Nobody can stand on a head. | Instantly readable in a clip. Works both ways: boost a friend over a gap, or stomp past the leader. Creates "piggyback" shortcuts in race rounds. |
+| **Jelly Clump** | Design, prototype in M3 | Two Wobblers colliding hard (combined speed over about 8 m/s, or tackle into tackle) stick together for 1.5 s and roll as one blob. Either can mash to split early. | Chaos pile-ups and "if I go down, you're coming with me" moments. Makes grabs and tackles near edges a real gamble. |
+| **House Rules** | Design, M3 with Party mode | Before each Party round, the player in last place spins or picks one modifier for everybody: low gravity, everything is ice, big heads (bigger bounce targets), reversed controls for the leader only, sticky feet, double-speed hazards. | Every show plays differently, and losing gives you power. Good for streams and replay value. |
+
+Rules for new signature mechanics: readable in under 3 seconds of footage; usable to help **or** to troll; never removes control for more than about 1.5 s.
 
 ## 4. Round framework
 

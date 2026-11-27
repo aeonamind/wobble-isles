@@ -43,6 +43,14 @@ export const TUNING = {
     hardLandingSpeed: 16, // fall speed that knocks you over on landing
     knockbackThreshold: 5.5, // impulse magnitude that triggers a ragdoll
   },
+  stomp: {
+    height: 2.0, // landing on someone's head bounces you this high (m)
+    boostHeight: 3.2, // ...or this high if you press jump as you land
+    squashTime: 0.7, // the stomped Wobbler is flattened for this long (s)
+    squashSlow: 0.45, // and moves at this fraction of run speed
+    slideOff: 2.5, // sideways push off the head so nobody can be pinned by endless bounces (m/s)
+    minNormalY: 0.55, // how "on top" the contact must be (1 = straight down)
+  },
   bump: {
     shove: 1.6, // walking into someone nudges them
     tackleMul: 0.8, // dive tackle transfers this fraction of the diver's velocity

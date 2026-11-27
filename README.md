@@ -17,7 +17,7 @@ npm run dev        # http://localhost:5180 (also reachable on your LAN)
 npm test           # simulation tests
 ```
 
-**Controls:** WASD move · mouse camera · Space jump · Shift / right mouse dive · hold left mouse / E to grab, release to throw · R respawn.
+**Controls:** WASD move · mouse camera · Space jump · Shift / right mouse dive · hold left mouse / E to grab, release to throw · R respawn. Land on someone's head to bounce (press jump on landing for a bigger boost).
 Gamepad: left stick move, right stick camera, A jump, X dive, RT grab.
 
 **Debug:** <kbd>`</kbd> toggles the tuning panel (values persist in localStorage; "Copy tuning JSON" to commit them) · F3 stats (incl. GPU name) · P FPS/ping · G cycles graphics quality (Auto → Low → Medium → High). Auto lowers render resolution, then shadows, to hold 50+ FPS.

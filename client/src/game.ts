@@ -185,6 +185,18 @@ export class Game {
         this.fx.ring(feet, 0x57d9b7, 1.8, 0.35);
         this.fx.burst(feet, [0x57d9b7, 0xffffff], 12, 3, { up: 4 });
         break;
+      case "stomp": {
+        view.impact("bounce");
+        const victim = this.sim.get(e.target);
+        this.views.get(e.target)?.impact("stomped");
+        if (victim) {
+          const head = new THREE.Vector3(victim.pos.x, victim.pos.y + 0.55, victim.pos.z);
+          this.fx.ring(head, e.boosted ? 0xffe156 : 0xffffff, e.boosted ? 1.6 : 1.1, 0.3);
+          this.fx.burst(head, e.boosted ? [0xffe156, 0xff7eb6, 0xffffff] : [0xffffff, 0xff7eb6], e.boosted ? 16 : 10, 3, { up: 2.5 });
+        }
+        if (isMe || e.target === this.player.id) this.rig.kick(e.boosted ? 0.35 : 0.2);
+        break;
+      }
       case "dive":
         this.fx.burst(feet, [0xffffff], 6, 1.2, { up: 0.8, gravity: 2, life: 0.3 });
         break;
@@ -260,6 +272,7 @@ export class Game {
           grabbing: w.grabbing,
           holding: w.holding != null,
           invulnerable: this.sim.time < w.invulnUntil,
+          squashed: this.sim.time < w.squashedUntil,
         },
         dt,
         this.groundBelow(w, x, y, z),

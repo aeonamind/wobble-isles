@@ -111,11 +111,12 @@ The contestant is a **kinematic capsule** driven by our own controller code runn
 | Air control | 35% of ground | |
 | Jump | 1.3 m apex, about 0.45 s to apex | Coyote time 0.1 s, jump buffer 0.12 s |
 | Gravity | 26 m/s² (×1.4 when falling) | Floaty up, punchy down |
-| Dive | 7.5 m/s forward impulse, then a belly slide | Missed landing leads to ragdoll |
+| Dive | 7.5 m/s forward, 4.5 m/s hop, then a 0.45 s belly slide | Diving or fast-sliding into someone tackles them into a ragdoll |
 | Grab range | 1.1 m cone, 60° | Holding slows both players to 70% |
 | Throw | 6 m/s horizontal, 4 m/s up | Thrown player ragdolls |
-| Ragdoll | 0.8–1.4 s, then auto get-up | Triggered by big hits, hard landings over 6 m/s, missed dives, being thrown |
+| Ragdoll | 0.8–1.4 s, then auto get-up | Triggered by big hits (knockback ≥ 5.5 m/s), hard landings over 16 m/s, tackles, being thrown |
 | Step / slope | 0.3 m step, 50° max slope | |
+| Safety caps | 25 m/s horizontal, 18 m/s upward knockback | Upward kicks never stack |
 
 ### 3.3 Surface materials (variety without new rules)
 

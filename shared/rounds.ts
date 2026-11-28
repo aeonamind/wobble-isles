@@ -139,7 +139,7 @@ function gearworksDash(seed: number): LevelDef {
   // Robot-arm sweepers
   solids.push(box(0, 0, 71, 18, 22));
   hazards.push({ kind: "sweeper", pos: { x: 0, y: 0, z: 66 }, armLength: 17, height: 0.55, speed: 1.5 });
-  hazards.push({ kind: "sweeper", pos: { x: 0, y: 0, z: 76 }, armLength: 17, height: 1.5, speed: -1.1, phase: Math.PI / 2 });
+  hazards.push({ kind: "sweeper", pos: { x: 0, y: 0, z: 76 }, armLength: 17, height: 1.75, speed: -1.1, phase: Math.PI / 2 });
   solids.push(box(0, 0, 85, 14, 6, { respawn: cp(0, 0, 85) }));
   // Bouncer hops over the void to the raised finish
   [91, 96.5].forEach((z, i) => solids.push(box(i % 2 === 0 ? -2 : 2, 0.2, z, 3, 3, { surface: "bouncer" })));

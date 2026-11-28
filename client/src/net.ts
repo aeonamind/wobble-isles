@@ -95,7 +95,7 @@ export class NetClient {
     this.send("ping", { c: performance.now() });
   }
 
-  static async connect(how: { create: true } | { code: string }, profile: { name: string; color?: number }, lagMs = 0): Promise<NetClient> {
+  static async connect(how: { create: true } | { code: string }, profile: { name: string; color?: number; style?: string }, lagMs = 0): Promise<NetClient> {
     const client = new Client(serverUrl());
     const room = "create" in how ? await client.create(ROOM_NAME, profile) : await client.joinById(normalizeRoomCode(how.code), profile);
     const welcome = await new Promise<WelcomeMsg>((resolve, reject) => {

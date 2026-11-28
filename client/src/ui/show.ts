@@ -33,6 +33,8 @@ export interface ShowView {
   host: boolean;
   /** Who the camera follows while we are out of the round (null = us). */
   spectating: number | null;
+  /** Fail Cam replay on screen: hold the results card back. */
+  replaying?: boolean;
 }
 
 export class ShowUi {
@@ -40,7 +42,10 @@ export class ShowUi {
   private toastSeq = 0;
   private goShown = 0;
   private lastCount = "";
+  private lastResultsKey = "";
   onStart: () => void = () => {};
+  /** Sound cues: countdown beeps, GO, toasts, results and the champion fanfare. */
+  onCue: (cue: "beep" | "go" | "toast" | "goal" | "avalanche" | "fanfare" | "champion") => void = () => {};
 
   constructor() {
     $("show-start").onclick = () => this.onStart();
@@ -119,6 +124,8 @@ export class ShowUi {
       if (performance.now() - this.goShown < 800) countText = "GO!";
     }
     if (countText !== this.lastCount) {
+      if (countText === "GO!") this.onCue("go");
+      else if (countText) this.onCue("beep");
       count.textContent = countText;
       count.hidden = !countText;
       count.classList.remove("pop");
@@ -144,7 +151,9 @@ export class ShowUi {
     // Toasts
     for (const t of m?.toasts ?? []) {
       if (t.seq <= this.toastSeq) continue;
+      const fresh = this.toastSeq > 0 || t.seq > 0;
       this.toastSeq = t.seq;
+      if (fresh) this.onCue(t.text.startsWith("GOAL") ? "goal" : t.text.includes("avalanche") ? "avalanche" : "toast");
       const node = el("div", "toast", t.text);
       $("show-toasts").append(node);
       setTimeout(() => node.classList.add("out"), 3200);
@@ -152,9 +161,12 @@ export class ShowUi {
     }
 
     // Results
-    const results = phase === "results" && !!m?.results && !!round;
+    const results = phase === "results" && !!m?.results && !!round && !v.replaying;
     $("show-results").hidden = !results;
-    if (results && key !== this.lastKey) {
+    const resultsKey = key + (v.replaying ? ":replay" : "");
+    if (results && resultsKey !== this.lastResultsKey) {
+      this.lastResultsKey = resultsKey;
+      this.onCue("fanfare");
       $("results-title").textContent = m.round!.final ? "Final results" : `${round.name}: results`;
       const sub = $("results-sub");
       sub.textContent = m.round!.final
@@ -181,6 +193,7 @@ export class ShowUi {
     const podium = phase === "podium" && !!m?.podium;
     $("show-podium").hidden = !podium;
     if (podium && key !== this.lastKey) {
+      this.onCue("champion");
       const champ = m.champion ?? m.podium![0];
       $("podium-champ").textContent = this.name(v, champ);
       const list = $("podium-list");
@@ -191,6 +204,15 @@ export class ShowUi {
           return row;
         }),
       );
+      const awards = $("podium-awards");
+      awards.replaceChildren(
+        ...(m.awards ?? []).map((a) => {
+          const card = el("div", "award" + (a.id === v.me ? " me" : ""));
+          card.append(el("b", "award-title", a.title), el("span", "award-who", this.name(v, a.id)), el("span", "award-text", a.text));
+          return card;
+        }),
+      );
+      awards.hidden = !m.awards?.length;
     }
 
     // Spectating banner

@@ -4,7 +4,7 @@ import { inZone } from "../level";
 import { rng, type Vec3 } from "../math";
 import { netStateOf } from "../protocol";
 import { ROUNDS } from "../rounds";
-import { leaderOf, pickFinalists, planShow, rankBy, splitTeams, starsFor, teamStars, type ShowMsg } from "../show";
+import { leaderOf, pickAwards, pickFinalists, planShow, rankBy, splitTeams, starsFor, teamStars, type ShowMsg, type StatKey } from "../show";
 import { DT, Sim, initPhysics, type NetState } from "../sim";
 import { ShowRunner, type ShowHost } from "../../server/ShowRunner";
 
@@ -60,6 +60,21 @@ describe("stars", () => {
     const sum = (team: number) => [...t].filter(([, x]) => x === team).reduce((a, [id]) => a + stars.get(id)!, 0);
     expect([...t.values()].filter((x) => x === 0)).toHaveLength(3);
     expect(Math.abs(sum(0) - sum(1))).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("awards", () => {
+  it("one award per player, best stat wins, small numbers don't count", () => {
+    const stats = new Map<number, Partial<Record<StatKey, number>>>([
+      [1, { tackles: 5, falls: 9 }],
+      [2, { tackles: 3, stomps: 4 }],
+      [3, { falls: 1, throws: 1 }],
+    ]);
+    const a = pickAwards(stats);
+    expect(a.map((x) => [x.title, x.id])).toEqual([
+      ["Bulldozer", 1],
+      ["Head Hopper", 2],
+    ]);
   });
 });
 

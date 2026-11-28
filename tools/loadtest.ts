@@ -55,6 +55,7 @@ const timer = setInterval(() => {
         invulnerable: false,
         holding: null,
         heldBy: null,
+      clumped: false,
       }),
       ev: n % 20 === i % 20 ? [{ type: "jump", id: b.id }] : [],
       out,

@@ -14,7 +14,9 @@ export class Hud {
   private ping: number | null = null;
 
   constructor() {
-    $("perf").hidden = localStorage.getItem("wobble-isles.perf") === "0";
+    // Controls are in Settings; the corner card only greets first-time players.
+    if (localStorage.getItem("wobble-isles.helpSeen")) $("help").hidden = true;
+    else setTimeout(() => localStorage.setItem("wobble-isles.helpSeen", "1"), 20000);
     $("room-copy").onclick = async () => {
       const url = new URL(location.href);
       url.search = new URLSearchParams({ room: $("room-code").textContent ?? "" }).toString();
@@ -32,7 +34,6 @@ export class Hud {
       if (e.code === "KeyH") $("help").hidden = !$("help").hidden;
       if (e.code === "KeyP") {
         $("perf").hidden = !$("perf").hidden;
-        localStorage.setItem("wobble-isles.perf", $("perf").hidden ? "0" : "1");
       }
     });
   }

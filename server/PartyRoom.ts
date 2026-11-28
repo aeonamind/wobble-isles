@@ -8,12 +8,14 @@ import {
   MAX_PLAYERS,
   SEND_RATE,
   cleanName,
+  cleanStyle,
   isNetMsg,
   isSimEvent,
   netStateOf,
   packBall,
   packNet,
   unpackNet,
+  type BodyStyle,
   type PingMsg,
   type PongMsg,
   type ProfileMsg,
@@ -29,6 +31,7 @@ import { ShowRunner, type ShowHost } from "./ShowRunner";
 export interface JoinOptions {
   name?: string;
   color?: number;
+  style?: string;
 }
 
 interface Player {
@@ -36,6 +39,7 @@ interface Player {
   wobbler: Wobbler;
   name: string;
   color: number;
+  style: BodyStyle;
   joinedAt: number;
 }
 
@@ -98,6 +102,7 @@ export class PartyRoom extends Room implements ShowHost {
       const p = this.players.get(client.sessionId);
       if (!p) return;
       p.name = cleanName(msg?.name, p.name);
+      if (msg?.style != null) p.style = cleanStyle(msg.style);
       this.broadcastRoster();
     });
 
@@ -155,7 +160,11 @@ export class PartyRoom extends Room implements ShowHost {
     const u = unpackNet(msg.w);
     if (u && u.id === p.wobbler.id) p.wobbler.net = u.net;
     if (Array.isArray(msg.ev)) {
-      for (const e of msg.ev.slice(0, 32)) if (isSimEvent(e) && e.id === p.wobbler.id) this.pendingEvents.push(e);
+      for (const e of msg.ev.slice(0, 32)) {
+        if (!isSimEvent(e) || e.id !== p.wobbler.id) continue;
+        this.pendingEvents.push(e);
+        this.runner.onEvent(e);
+      }
     }
     if (Array.isArray(msg.out)) {
       for (const m of msg.out.slice(0, 32)) if (isNetMsg(m) && m.from === p.wobbler.id) this.route(m, p);
@@ -199,7 +208,7 @@ export class PartyRoom extends Room implements ShowHost {
     const wobbler = this.sim.addWobbler(spawn, "remote", color, this.nextPlayerId++);
     wobbler.net = netStateOf(wobbler, this.sim.time);
     const name = cleanName(options.name, `Wobbler ${slot + 1}`);
-    const player: Player = { client, wobbler, name, color, joinedAt: Date.now() };
+    const player: Player = { client, wobbler, name, color, style: cleanStyle(options.style), joinedAt: Date.now() };
     this.players.set(client.sessionId, player);
     this.byWobbler.set(wobbler.id, player);
     this.hostId ??= client.sessionId;
@@ -231,7 +240,7 @@ export class PartyRoom extends Room implements ShowHost {
 
   private broadcastRoster() {
     const msg: RosterMsg = {
-      players: [...this.players.entries()].map(([sid, p]) => ({ id: p.wobbler.id, name: p.name, color: p.color, host: sid === this.hostId })),
+      players: [...this.players.entries()].map(([sid, p]) => ({ id: p.wobbler.id, name: p.name, color: p.color, style: p.style, host: sid === this.hostId })),
     };
     this.broadcast("roster", msg);
   }

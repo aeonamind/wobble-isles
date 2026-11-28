@@ -149,7 +149,7 @@ The genre core (run, jump, dive, grab) is shared with every obstacle-course part
 | Mechanic | Status | Rule | Why it's fun |
 |---|---|---|---|
 | **Head Bounce** | Prototype in M1 sandbox | Every Wobbler's head is a trampoline. Land on someone and you spring up 2.0 m (3.2 m if you press jump as you land) and slide off the dome; they are squashed flat for 0.7 s and move at 45% speed. Nobody can stand on a head. | Instantly readable in a clip. Works both ways: boost a friend over a gap, or stomp past the leader. Creates "piggyback" shortcuts in race rounds. |
-| **Jelly Clump** | Design, prototype in M3 | Two Wobblers colliding hard (combined speed over about 8 m/s, or tackle into tackle) stick together for 1.5 s and roll as one blob. Either can mash to split early. | Chaos pile-ups and "if I go down, you're coming with me" moments. Makes grabs and tackles near edges a real gamble. |
+| **Jelly Clump** | Shipped in M4 | Two Wobblers colliding head-on hard (closing speed over 10.5 m/s, i.e. two sprinters, or dive into dive) stick together for 1.5 s and roll as one blob, steering at 40% speed. Either can mash jump 3× to split early; they pop apart at the end, then can't re-clump for 1.2 s. | Chaos pile-ups and "if I go down, you're coming with me" moments. Makes grabs and tackles near edges a real gamble. |
 | **House Rules** | Shipped in M3 (4 rules); more in M4 | From round 2, before each Party round (not the Final), the player in last place spins one modifier for everybody. M3 set: **Moon Bounce** (half gravity), **Ice Age** (every floor is ice), **Turbo Traps** (hazards 35% faster), **Caramel Floors** (sticky feet). Rules that make no sense for a level are skipped (no Ice Age on water, no Turbo Traps without hazards). Later: big heads, reversed controls for the leader only. | Every show plays differently, and losing gives you power. Good for streams and replay value. |
 
 Rules for new signature mechanics: readable in under 3 seconds of footage; usable to help **or** to troll; never removes control for more than about 1.5 s.
@@ -345,9 +345,19 @@ After M1, M3 and every new round:
 
 1. Monetisation model, if any (deferred to M6).
 2. Account system: guest names only for Party mode. Accounts needed for Show mode and cosmetics.
-3. Character artist: built in-house versus commissioning a hero character. Decide at M4.
+3. Character artist: M4 ships three in-house procedural silhouettes (Bean, Gumdrop, Drop; 1.25 m tall). Commissioning a hero character is revisited with cosmetics (M6).
 4. Licensing of the codebase (private versus open source).
 5. Native app client: keep the web client wrapped (default) or switch engine, decided by the M1 mobile performance spike.
+
+## Appendix: M4 implementation notes
+
+- **Characters:** `WOBBLER_HALF` 0.245 makes the capsule 1.25 m tall. Body silhouettes are lathe profiles in `client/src/render/wobbler.ts`; the style travels in the roster (`style` in join/profile).
+- **Audio:** `client/src/audio.ts` synthesises SFX (oscillators + filtered noise) and runs a look-ahead step sequencer (bass, plucks, drums, seeded pentatonic lead) per mood. Positional sounds pan and fade by distance from the camera.
+- **Fail Cam:** each client records every Wobbler at 30 Hz during play and scores moments (falls, tackles, throws, clumps, stomps). In results it replays the best one at 0.6× with a slow orbit camera. No video, no network cost.
+- **Awards:** the server counts tackles, stomps, falls, throws, hazard hits, grabs, bounties and crown time from uploaded events and picks up to four distinct awards (one per player) for the podium.
+- **Jelly Clump netcode:** the owner who detects the collision sticks itself and sends a `clump` NetMsg; the partner's owner accepts it if free. Each owner then springs toward its partner; a `clumped` bit in the packed state draws the jelly bridge for everyone.
+- **Ground fix:** an idle character used to creep into the floor until Rapier's controller refused to move it; grounded Wobblers are now lifted back to rest height every tick (regression test in `shared/test/ground.test.ts`).
+- **Delivery:** production serves gzip with immutable caching for hashed assets; a service worker caches assets cache-first and pages network-first. First load ≈ 1.9 MB gzipped.
 
 ## Appendix: M3 implementation notes
 

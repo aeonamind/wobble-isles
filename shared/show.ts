@@ -7,7 +7,7 @@ import { ROUNDS, type Category, type RoundDef } from "./rounds";
 export type Phase = "lobby" | "intro" | "countdown" | "play" | "results" | "podium";
 
 /** Seconds per timed phase. */
-export const PHASE_TIME = { intro: 5, countdown: 3, results: 8, podium: 14 } as const;
+export const PHASE_TIME = { intro: 5, countdown: 3, results: 12, podium: 16 } as const;
 /** Rounds before the Final. */
 export const SHOW_ROUNDS = 5;
 export const FINALISTS = 3;
@@ -31,6 +31,50 @@ export const houseRule = (id: string | null | undefined) => HOUSE_RULES.find((r)
 
 /** House Rules start from this round (1-based), never in the Final. */
 export const HOUSE_RULES_FROM = 2;
+
+// ───────────────────────── Awards ─────────────────────────
+
+export type StatKey = "tackles" | "stomps" | "falls" | "throws" | "hazardHits" | "grabs" | "crownTime" | "bounties";
+
+export interface Award {
+  title: string;
+  id: number;
+  text: string;
+}
+
+const AWARD_DEFS: { stat: StatKey; title: string; text: (n: number) => string }[] = [
+  { stat: "tackles", title: "Bulldozer", text: (n) => `${n} tackles` },
+  { stat: "stomps", title: "Head Hopper", text: (n) => `bounced on ${n} heads` },
+  { stat: "bounties", title: "Crown Thief", text: (n) => `took down the leader ${n}×` },
+  { stat: "throws", title: "Bouncer", text: (n) => `threw ${n} Wobblers` },
+  { stat: "crownTime", title: "Royalty", text: (n) => `held the crown ${n.toFixed(0)} s` },
+  { stat: "hazardHits", title: "Pinball", text: (n) => `bonked by hazards ${n}×` },
+  { stat: "falls", title: "Gravity's Best Friend", text: (n) => `fell off ${n}×` },
+  { stat: "grabs", title: "Hugger", text: (n) => `grabbed ${n}×` },
+];
+
+/** Up to `max` fun awards for the end of a show: one per player, best stat first, ties to the earlier id. */
+export function pickAwards(stats: Map<number, Partial<Record<StatKey, number>>>, max = 4): Award[] {
+  const out: Award[] = [];
+  const given = new Set<number>();
+  for (const def of AWARD_DEFS) {
+    if (out.length >= max) break;
+    let best: number | null = null;
+    let bestV = 0;
+    for (const [id, st] of [...stats].sort((a, b) => a[0] - b[0])) {
+      const v = st[def.stat] ?? 0;
+      if (v > bestV && !given.has(id)) {
+        best = id;
+        bestV = v;
+      }
+    }
+    if (best != null && bestV >= (def.stat === "crownTime" ? 5 : 2)) {
+      out.push({ title: def.title, id: best, text: def.text(bestV) });
+      given.add(best);
+    }
+  }
+  return out;
+}
 
 // ───────────────────────── Show Director ─────────────────────────
 
@@ -163,6 +207,7 @@ export interface ShowMsg {
   results: ResultRow[] | null;
   champion: number | null;
   podium: number[] | null;
+  awards: Award[] | null;
   /** Hazards added mid-round (Gremlin avalanches). */
   extra: HazardDef[];
   /** Latest announcements, newest last. */

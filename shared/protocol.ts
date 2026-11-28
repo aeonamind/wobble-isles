@@ -20,6 +20,7 @@ const F_GROUNDED = 1;
 const F_GRABBING = 2;
 const F_SQUASHED = 4;
 const F_INVULN = 8;
+const F_CLUMP = 16;
 
 /** [id, x, y, z, vx, vy, vz, facing, state, flags, holding, heldBy] — all integers. */
 export type PackedWobbler = number[];
@@ -30,7 +31,7 @@ const cm = (v: number) => Math.round(v * 100);
 const mrad = (a: number) => Math.round(a * 1000);
 
 export function packNet(id: number, n: NetState): PackedWobbler {
-  const flags = (n.grounded ? F_GROUNDED : 0) | (n.grabbing ? F_GRABBING : 0) | (n.squashed ? F_SQUASHED : 0) | (n.invulnerable ? F_INVULN : 0);
+  const flags = (n.grounded ? F_GROUNDED : 0) | (n.grabbing ? F_GRABBING : 0) | (n.squashed ? F_SQUASHED : 0) | (n.invulnerable ? F_INVULN : 0) | (n.clumped ? F_CLUMP : 0);
   return [
     id,
     cm(n.pos.x),
@@ -62,6 +63,7 @@ export function unpackNet(p: PackedWobbler): { id: number; net: NetState } | nul
       grabbing: (p[9] & F_GRABBING) !== 0,
       squashed: (p[9] & F_SQUASHED) !== 0,
       invulnerable: (p[9] & F_INVULN) !== 0,
+      clumped: (p[9] & F_CLUMP) !== 0,
       holding: p[10] || null,
       heldBy: p[11] || null,
     },
@@ -81,6 +83,7 @@ export function netStateOf(w: Wobbler, time: number): NetState {
     invulnerable: time < w.invulnUntil,
     holding: w.holding,
     heldBy: w.heldBy,
+    clumped: w.clumpWith != null,
   };
 }
 
@@ -132,10 +135,15 @@ export interface WelcomeMsg {
   tick: number;
 }
 
+export const BODY_STYLES = ["bean", "gumdrop", "drop"] as const;
+export type BodyStyle = (typeof BODY_STYLES)[number];
+export const cleanStyle = (s: unknown): BodyStyle => (BODY_STYLES.includes(s as BodyStyle) ? (s as BodyStyle) : "bean");
+
 export interface RosterEntry {
   id: number;
   name: string;
   color: number;
+  style: BodyStyle;
   host: boolean;
 }
 
@@ -156,6 +164,7 @@ export interface PongMsg {
 export interface ProfileMsg {
   name?: string;
   color?: number;
+  style?: BodyStyle;
 }
 
 export const PLAYER_NAME_MAX = 16;
@@ -171,7 +180,7 @@ export function normalizeRoomCode(input: string): string {
   return input.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-const NET_KINDS = new Set(["knock", "squash", "grab", "release", "mash", "drop"]);
+const NET_KINDS = new Set(["knock", "squash", "grab", "release", "mash", "drop", "clump"]);
 
 /** Validate an untrusted interaction message. */
 export function isNetMsg(m: unknown): m is NetMsg {
@@ -186,7 +195,7 @@ export function isNetMsg(m: unknown): m is NetMsg {
   return true;
 }
 
-const EVENT_TYPES = new Set(["jump", "land", "bounce", "dive", "ragdoll", "grab", "throw", "release", "tackle", "stomp", "hazardHit", "ballHit", "fall", "respawn"]);
+const EVENT_TYPES = new Set(["jump", "land", "bounce", "dive", "ragdoll", "grab", "throw", "release", "tackle", "stomp", "hazardHit", "ballHit", "fall", "respawn", "clump"]);
 
 export function isSimEvent(e: unknown): e is SimEvent {
   return !!e && typeof e === "object" && EVENT_TYPES.has((e as { type?: string }).type ?? "") && typeof (e as { id?: unknown }).id === "number";

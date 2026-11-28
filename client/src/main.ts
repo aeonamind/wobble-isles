@@ -1,7 +1,7 @@
 import { initPhysics } from "../../shared/sim";
 import { Game, QUALITY_ORDER, type Quality } from "./game";
 import { NetClient } from "./net";
-import { showMenu } from "./ui/menu";
+import { savedLook, showMenu } from "./ui/menu";
 import "./style.css";
 
 const QUALITY_KEY = "wobble-isles.quality";
@@ -24,23 +24,27 @@ addEventListener("keydown", (e) => {
   location.search = p.toString();
 });
 
+// Installable app + fast repeat loads (production only; dev uses Vite HMR).
+if (import.meta.env.PROD && "serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(() => {});
+
 await initPhysics();
 document.getElementById("loading")?.remove();
 const container = document.getElementById("game")!;
 
 if (bench || params.has("solo")) {
-  new Game(container, { quality, bench, round: params.get("round") ?? undefined });
+  new Game(container, { quality, bench, round: params.get("round") ?? undefined, ...savedLook() });
 } else {
-  const choice = await showMenu(params.get("room") ?? "", async (how, name) => NetClient.connect(how, { name }, lag));
+  const { net: choice, profile } = await showMenu(params.get("room") ?? "", async (how, p) => NetClient.connect(how, p, lag));
+  const look = { color: profile.color, style: profile.style };
   if (choice === "solo") {
-    new Game(container, { quality, bench: false });
+    new Game(container, { quality, bench: false, ...look });
   } else {
     const net = choice;
     const p = new URLSearchParams(location.search);
     p.set("room", net.code);
     history.replaceState(null, "", `?${p}`);
     document.getElementById("ctp-sub")!.textContent = `Room ${net.code}`;
-    const game = new Game(container, { quality, bench: false, net });
+    const game = new Game(container, { quality, bench: false, net, ...look });
     net.onDisconnect = () => game.disconnected();
     addEventListener("beforeunload", () => net.leave());
   }

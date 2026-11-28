@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineRoom, defineServer, matchMaker } from "colyseus";
+import compression from "compression";
 import express from "express";
 import { ROOM_NAME } from "../shared/protocol";
 import { initPhysics } from "../shared/sim";
@@ -25,6 +26,17 @@ export const app = defineServer({
       res.json({ rooms: rooms.length, players: rooms.reduce((n, r) => n + r.clients, 0) });
     });
     // Production: `npm run build` then `npm start` serves the game page from the same origin.
-    if (existsSync(distDir)) expressApp.use(express.static(distDir));
+    // Hashed assets never change (cache for a year); pages and the service worker always revalidate.
+    if (existsSync(distDir)) {
+      expressApp.use(compression());
+      expressApp.use(
+        express.static(distDir, {
+          setHeaders: (res, path) => {
+            if (/[\\/]assets[\\/]/.test(path)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+            else res.setHeader("Cache-Control", "no-cache");
+          },
+        }),
+      );
+    }
   },
 });

@@ -53,7 +53,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVEODRGOUYzRjc5Mzc2QzcKUldUSGRwUDM4L21FWGNiVFRLV2FBQmZLajVwa1dSTm8wRk9RMWZTdXR0UUU1VHZyZGFKYnZZWDIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM1MzY0MkM4NjNBQkYyQkQKUldTOThxdGp5RUkyeFhqRlNYMno4UWN0OFFlczArd2JjM3FGdjZITHBsNzYvODZvWVc1V3h4ZU8K",
       "endpoints": [
         "https://github.com/aeonamind/wobble-isles/releases/latest/download/latest.json"
       ],

@@ -1,19 +1,20 @@
 // `npm run app:build`: builds the desktop app installers.
 // Update bundles must be signed with the project's updater key. Locally the key lives in
-// ~/.tauri/wobble-isles.key (CI gets it from the TAURI_SIGNING_PRIVATE_KEY secret). Without a
-// key the installers are still built, just without the signed update files.
+// ~/.tauri/wobble-isles.key, its password in ~/.tauri/wobble-isles.key.password (CI gets both from
+// the TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD secrets). Without a key the installers are still built, just without the signed update files.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 const env = { ...process.env };
 const args = ["tauri", "build", ...process.argv.slice(2)];
 const keyFile = join(homedir(), ".tauri", "wobble-isles.key");
+const passwordFile = `${keyFile}.password`;
 
 if (!env.TAURI_SIGNING_PRIVATE_KEY && existsSync(keyFile)) {
   env.TAURI_SIGNING_PRIVATE_KEY = keyFile;
-  env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ??= "";
+  env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ??= existsSync(passwordFile) ? readFileSync(passwordFile, "utf8").trim() : "";
 }
 if (!env.TAURI_SIGNING_PRIVATE_KEY) {
   console.warn(`No updater key (${keyFile}): building installers without update bundles.`);

@@ -3,14 +3,37 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #ffb3d9; fon
 #game { position: fixed; inset: 0; }
 #game canvas { display: block; }
 #loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 28px; font-weight: 800; color: #3a2450; }
+.card { color: #3a2450; background: #fff8fbee; border: 4px solid #3a2450; border-radius: 28px; box-shadow: 0 8px 0 #3a2450; }
 .overlay-card { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 28px 40px; text-align: center; color: #3a2450; background: #fff8fbee; border: 4px solid #3a2450; border-radius: 28px; box-shadow: 0 8px 0 #3a2450; pointer-events: none; }
 .overlay-card h1 { margin: 0; font-size: 44px; letter-spacing: 1px; color: #ff4f8b; -webkit-text-stroke: 2px #3a2450; }
 .overlay-card .sub { margin: 4px 0 14px; font-weight: 700; opacity: 0.7; }
 .overlay-card p:last-child { margin: 0; font-size: 20px; font-weight: 800; }
 #help { position: fixed; left: 12px; bottom: 12px; padding: 10px 14px; font-size: 13px; line-height: 1.5; color: #3a2450; background: #fff8fbdd; border: 2px solid #3a2450; border-radius: 14px; }
-#stats, #bench { position: fixed; left: 12px; top: 12px; margin: 0; padding: 8px 12px; font: 12px/1.5 ui-monospace, monospace; color: #fff; background: #3a2450cc; border-radius: 10px; }
+#stats, #bench { position: fixed; left: 12px; top: 140px; margin: 0; padding: 8px 12px; font: 12px/1.5 ui-monospace, monospace; color: #fff; background: #3a2450cc; border-radius: 10px; }
 #bench { left: 50%; top: 16px; transform: translateX(-50%); font-size: 14px; }
 #perf { position: fixed; right: 12px; bottom: 12px; display: flex; gap: 10px; padding: 5px 12px; font: 700 13px/1.4 ui-monospace, monospace; color: #fff; background: #3a2450cc; border-radius: 999px; pointer-events: none; }
 #perf .good { color: #7dffb0; } #perf .ok { color: #ffe156; } #perf .bad { color: #ff7a7a; } #perf .off { color: #c9b8d9; }
 [hidden] { display: none !important; }
 .lil-gui.root { --font-size: 12px; top: 12px; right: 12px; position: fixed; }
+
+.card h1 { margin: 0; font-size: 44px; letter-spacing: 1px; color: #ff4f8b; -webkit-text-stroke: 2px #3a2450; }
+.card .sub { margin: 4px 0 14px; font-weight: 700; opacity: 0.7; }
+.menu { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, 92vw); padding: 26px 30px; display: flex; flex-direction: column; gap: 12px; text-align: center; z-index: 5; }
+.menu label { display: flex; flex-direction: column; gap: 6px; text-align: left; font-weight: 700; font-size: 14px; }
+.menu input, .menu button, #room button, #disconnected button { font: inherit; font-weight: 800; border-radius: 14px; border: 3px solid #3a2450; padding: 10px 14px; }
+.menu input { background: #fff; color: #3a2450; font-size: 18px; }
+.menu button, #room button, #disconnected button { cursor: pointer; background: #fff; color: #3a2450; box-shadow: 0 4px 0 #3a2450; transition: transform 0.05s; }
+.menu button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #3a2450; }
+.menu button:disabled { opacity: 0.5; cursor: default; }
+.menu button.primary { background: #ff4f8b; color: #fff; font-size: 20px; }
+.menu button.ghost { background: transparent; box-shadow: none; border-color: transparent; text-decoration: underline; }
+.join-row { display: flex; gap: 8px; }
+.join-row input { flex: 1; min-width: 0; text-align: center; letter-spacing: 6px; text-transform: uppercase; }
+.error { margin: 0; color: #d62d50; font-weight: 700; font-size: 14px; }
+#room { position: fixed; left: 12px; top: 12px; padding: 8px 12px; color: #3a2450; background: #fff8fbdd; border: 2px solid #3a2450; border-radius: 14px; font-size: 13px; z-index: 2; }
+#room .room-head b { font-size: 18px; letter-spacing: 3px; margin: 0 6px; }
+#room button { padding: 3px 8px; font-size: 12px; border-width: 2px; box-shadow: 0 2px 0 #3a2450; }
+#room ul { list-style: none; margin: 6px 0 0; padding: 0; }
+#room li { display: flex; align-items: center; gap: 6px; line-height: 1.6; font-weight: 700; }
+#room li i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #3a2450; }
+#disconnected { z-index: 6; pointer-events: auto; }

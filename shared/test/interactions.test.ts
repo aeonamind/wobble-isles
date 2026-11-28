@@ -176,3 +176,55 @@ describe("stability", () => {
     expect(worst).toBeLessThanOrEqual(25.01);
   });
 });
+
+describe("head bounce", () => {
+  const stack = () => {
+    const sim = world([floor()]);
+    const bottom = sim.addWobbler({ x: 0, y: 1, z: 0 }, "player");
+    settle(sim);
+    const top = sim.addWobbler({ x: 0.05, y: 3.2, z: 0 }, "player");
+    return { sim, bottom, top };
+  };
+
+  it("landing on a head bounces you up and squashes them", () => {
+    const { sim, bottom, top } = stack();
+    let stomp = false;
+    let peak = 0;
+    run(sim, 90, () => {
+      if (sim.events.some((e) => e.type === "stomp" && e.id === top.id && e.target === bottom.id)) stomp = true;
+      if (stomp) peak = Math.max(peak, top.pos.y);
+      return new Map();
+    });
+    expect(stomp).toBe(true);
+    expect(peak - bottom.pos.y).toBeGreaterThan(2.5); // well above a normal 1.3 m jump
+  });
+
+  it("pressing jump on landing gives a bigger boost", () => {
+    const peakWith = (boost: boolean) => {
+      const { sim, bottom, top } = stack();
+      let peak = 0;
+      let stomped = false;
+      run(sim, 120, (i) => {
+        if (sim.events.some((e) => e.type === "stomp")) stomped = true;
+        if (stomped) peak = Math.max(peak, top.pos.y - bottom.pos.y);
+        return hold(top, { jump: boost && i % 3 === 0 && !stomped });
+      });
+      return peak;
+    };
+    expect(peakWith(true)).toBeGreaterThan(peakWith(false) + 0.8);
+  });
+
+  it("the stomped Wobbler is slowed while squashed", () => {
+    const { sim, bottom } = stack();
+    run(sim, 40);
+    expect(sim.time).toBeLessThan(bottom.squashedUntil);
+    run(sim, 10, () => hold(bottom, { mx: 1 }));
+    expect(Math.hypot(bottom.vel.x, bottom.vel.z)).toBeLessThan(TUNING.move.runSpeed * TUNING.stomp.squashSlow + 0.1);
+  });
+
+  it("nobody can stand on a head", () => {
+    const { sim, bottom, top } = stack();
+    run(sim, 300);
+    expect(top.pos.y - bottom.pos.y).toBeLessThan(0.3);
+  });
+});

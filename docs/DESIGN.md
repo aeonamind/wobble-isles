@@ -116,6 +116,7 @@ The contestant is a **kinematic capsule** driven by our own controller code runn
 | Throw | 6 m/s horizontal, 4 m/s up | Thrown player ragdolls |
 | Ragdoll | 0.8–1.4 s, then auto get-up | Triggered by big hits (knockback ≥ 5.5 m/s), hard landings over 16 m/s, tackles, being thrown |
 | Step / slope | 0.3 m step, 50° max slope | |
+| Head bounce | 2.0 m (3.2 m with jump), 2.5 m/s slide-off | Stomped Wobbler: 0.7 s at 45% speed |
 | Safety caps | 25 m/s horizontal, 18 m/s upward knockback | Upward kicks never stack |
 
 ### 3.3 Surface materials (variety without new rules)
@@ -140,6 +141,18 @@ The contestant is a **kinematic capsule** driven by our own controller code runn
 ### 3.5 Hazards are functions of time
 
 Every scripted hazard (sweepers, hammers, presses, tilting discs, conveyors) is a **pure function of round time plus a seed**. Server and clients compute the same transform locally, so hazards cost no bandwidth and never stutter. Only player-affected objects (balls, floes, eggs) are simulated and synced.
+
+### 3.6 Signature mechanics (what Wobble Isles has that its genre peers don't)
+
+The genre core (run, jump, dive, grab) is shared with every obstacle-course party game. These three mechanics are ours, and all of them grow out of the contestants being **jelly**:
+
+| Mechanic | Status | Rule | Why it's fun |
+|---|---|---|---|
+| **Head Bounce** | Prototype in M1 sandbox | Every Wobbler's head is a trampoline. Land on someone and you spring up 2.0 m (3.2 m if you press jump as you land) and slide off the dome; they are squashed flat for 0.7 s and move at 45% speed. Nobody can stand on a head. | Instantly readable in a clip. Works both ways: boost a friend over a gap, or stomp past the leader. Creates "piggyback" shortcuts in race rounds. |
+| **Jelly Clump** | Design, prototype in M3 | Two Wobblers colliding hard (combined speed over about 8 m/s, or tackle into tackle) stick together for 1.5 s and roll as one blob. Either can mash to split early. | Chaos pile-ups and "if I go down, you're coming with me" moments. Makes grabs and tackles near edges a real gamble. |
+| **House Rules** | Design, M3 with Party mode | Before each Party round, the player in last place spins or picks one modifier for everybody: low gravity, everything is ice, big heads (bigger bounce targets), reversed controls for the leader only, sticky feet, double-speed hazards. | Every show plays differently, and losing gives you power. Good for streams and replay value. |
+
+Rules for new signature mechanics: readable in under 3 seconds of footage; usable to help **or** to troll; never removes control for more than about 1.5 s.
 
 ## 4. Round framework
 
@@ -269,12 +282,12 @@ Names are working titles. ⭐ marks the M3 launch set.
 |---|---|---|
 | Language | TypeScript monorepo (`shared/`, `server/`, `client/`) | Same simulation code on server and client, proven in Gunner 2 |
 | Physics | Rapier (`@dimforge/rapier3d-compat`, WASM) | Fast, runs in Node and browsers |
-| Networking | Colyseus 0.18, server-authoritative | Rooms, matchmaking hooks, proven |
-| Simulation | 60 Hz fixed step on the server. 30 Hz snapshots | |
-| Client netcode | Own contestant predicted with the shared controller and reconciled by input ack. Others interpolated about 100 ms behind. Time-based hazards computed locally | Feels instant even at 100–150 ms |
+| Networking | Colyseus 0.18. Server owns the room, the clock, hazards, balls, NPCs and referees every interaction | Rooms, matchmaking hooks, proven |
+| Simulation | 60 Hz fixed step everywhere. 30 Hz uploads and snapshots | |
+| Client netcode | **Owner-simulated movement** (decided in M2, see below). Others interpolated 100 ms behind. Time-based hazards computed locally on the server clock | Instant controls even at 250+ ms |
 | Rendering | Three.js, toon shading, instanced contestants, LOD | Browser reach |
 | Hosting | Phase 1: one Singapore VPS (about 30–50 ms from Vietnam). Phase 2: multiple processes and regions, Colyseus proxy, matchmaker | Latency first, then scale |
-| Quality | Vitest for simulation and rules. Playwright for multi-client end-to-end. `@colyseus/loadtest` for 32 bots. CI on every PR | |
+| Quality | Vitest for simulation, netcode and server rooms. Playwright for multi-client end-to-end. `tools/loadtest.ts` for 32 bots. CI on every PR | |
 
 **Platform strategy (decided 2026-11-28):** **web first.** The browser build is the primary product (instant play via link).
 Native apps come later by wrapping the same client: **Capacitor** for Android/iOS, **Tauri** for desktop/Steam.
@@ -282,6 +295,23 @@ Because mobile WebView performance is the main risk of this stack, M1 includes a
 an island scene with 8 animated Wobblers, Rapier physics and shadows, packaged with Capacitor and run on a real mid-range Android phone.
 **Gate:** a stable ≥ 50 FPS with no thermal throttling after 10 minutes keeps this stack for apps; otherwise re-evaluate the app client (e.g. Godot 4) before M4.
 The design docs, rules, tuning values and glTF asset pipeline are engine-agnostic either way.
+
+**Netcode model (decided in M2).** Each client simulates its *own* Wobbler with the shared controller and uploads its state 30×/s.
+Everything that affects *another* Wobbler (tackle, shove, head bounce, grab, throw, mash, ball hit) is an interaction message
+that the server checks (sender owns the source, both are within 5 m) and forwards to the Sim that owns the target, which applies it.
+The server owns the clock (hazard timing), physics balls and NPC dummies.
+
+Why not full server authority with rollback: from Vietnam to the current Helsinki cluster the round trip is about 270 ms, so
+server-authoritative movement would feel sluggish, and Rapier world rollback is costly. Owner-simulated movement is what party
+games in this genre typically do. The trade-off is trust: a modified client could move unrealistically. That's acceptable for
+private Party rooms; Show mode (public, M6+) adds server-side plausibility checks on uploaded movement (speed, teleport, fly time).
+
+**Measured in M2** (`npm run loadtest`, one room, bots uploading at 30 Hz, laptop CPU):
+
+| Players | Server tick (avg / max) | Budget used | Snapshot | Download per client |
+|---|---|---|---|---|
+| 8 | 0.84 / 5.8 ms | 5% | 315 B | 9 KB/s |
+| 32 | 1.03 / 6.0 ms | 6% | 855 B | 25 KB/s |
 
 **Budgets:**
 - Server: ≤ 4 ms simulation per tick for 32 players.
@@ -297,7 +327,7 @@ Each milestone is one or more PRs, merged only after a real playtest.
 |---|---|---|
 | **M0 Design** | This document, ART.md, ASSETS.md, repo skeleton | Owner approves |
 | **M1 Feel** | Single-player sandbox: controller, jump, dive, grab and throw (with dummies), ragdoll, surfaces, 3 hazard types, camera, gamepad, tuning panel. Mobile performance spike (see §8) | "Fun to mess around in for 10 minutes" from 3 testers |
-| **M2 Netcode** | Authoritative server, prediction and reconciliation, grabbing across the network, latency simulator, bot clients | 8 players smooth at 150 ms simulated latency. Measured CPU and bandwidth for 32 bots |
+| **M2 Netcode** | Party rooms with codes and invite links, owner-simulated movement, server-refereed interactions (grab, tackle, stomp, throw) across the network, latency simulator (`?lag=`), load-test bots | 8 players smooth at 150 ms simulated latency. Measured CPU and bandwidth for 32 bots |
 | **M3 Party Mode** | Lobby, Show Director, stars and catch-up, Gremlins, the 6 ⭐ rounds | A full 6-player show playtested, with feedback logged |
 | **M4 Polish** | Audio and music, UI, Fail Cam, awards, settings, touch, PWA, performance pass | Performance budgets met. A playtest show with no blocker bugs |
 | **M5 Launch** | Singapore deploy, CI/CD, monitoring | Public link for friends |

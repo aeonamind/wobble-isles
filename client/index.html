@@ -5,16 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#FFB3D9" />
     <link rel="icon" href="/favicon.svg" />
-    <title>Wobble Isles — Feel Sandbox</title>
+    <title>Wobble Isles</title>
   </head>
   <body>
     <div id="game"></div>
     <div id="loading">Loading…</div>
 
-    <div id="click-to-play" class="overlay-card">
+    <form id="menu" class="card menu" hidden>
       <h1>Wobble Isles</h1>
-      <p class="sub">M1 · Feel Sandbox</p>
+      <p class="sub">A jelly party royale in the sky</p>
+      <label>Your name <input id="menu-name" maxlength="16" autocomplete="nickname" spellcheck="false" /></label>
+      <button type="button" id="menu-create" class="primary">Create a room</button>
+      <div class="join-row">
+        <input id="menu-code" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" />
+        <button type="submit" id="menu-join">Join</button>
+      </div>
+      <button type="button" id="menu-solo" class="ghost">Practice alone</button>
+      <p id="menu-error" class="error" hidden></p>
+    </form>
+
+    <div id="click-to-play" class="card overlay-card" hidden>
+      <h1>Wobble Isles</h1>
+      <p class="sub" id="ctp-sub">Feel Sandbox</p>
       <p>Click to play</p>
+    </div>
+
+    <div id="room" hidden>
+      <div class="room-head">Room <b id="room-code">----</b> <button id="room-copy" type="button">Copy invite link</button></div>
+      <ul id="room-players"></ul>
+    </div>
+
+    <div id="disconnected" class="card overlay-card" hidden>
+      <h1>Disconnected</h1>
+      <p class="sub">Lost the connection to the room.</p>
+      <p><button type="button" onclick="location.reload()">Reconnect</button></p>
     </div>
 
     <div id="perf" title="P toggles"><span id="perf-fps">-- FPS</span><span id="perf-ping">ping —</span><span id="perf-q" class="off">Auto</span></div>
@@ -23,7 +47,7 @@
 
     <div id="help">
       <b>WASD</b> move · <b>Mouse</b> camera · <b>Space</b> jump · <b>Shift</b>/<b>RMB</b> dive<br />
-      Hold <b>LMB</b>/<b>E</b> grab · release to throw · <b>R</b> respawn<br />
+      Hold <b>LMB</b>/<b>E</b> grab · release to throw · land on a head to bounce · <b>R</b> respawn<br />
       <b>`</b> tuning · <b>F3</b> stats · <b>P</b> FPS/ping · <b>G</b> graphics · <b>H</b> hide help · Gamepad supported
     </div>
 

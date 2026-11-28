@@ -56,20 +56,22 @@ Installed apps check `releases/latest/download/latest.json` when the menu opens,
 
 **Test build without releasing:** Actions → Release → Run workflow. The installers become run artifacts; nothing is published.
 
-**Local build:** `npm run app:build`. It signs update bundles with `~/.tauri/wobble-isles.key` if that file exists.
+**Local build:** `npm run app:build`. It signs update bundles with `~/.tauri/wobble-isles.key` if that file exists, unlocking it with the password in `~/.tauri/wobble-isles.key.password`.
 
 ## One-time setup (repository settings)
 
 | Where | Name | Value |
 |---|---|---|
 | Secrets | `TAURI_SIGNING_PRIVATE_KEY` | Contents of `~/.tauri/wobble-isles.key` (the updater signing key) |
-| Secrets | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Empty (the key has no password); the secret can be left out |
+| Secrets | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Contents of `~/.tauri/wobble-isles.key.password` (the key's password) |
 | Secrets | `DOCKERHUB_USERNAME` | Docker Hub user |
 | Secrets | `DOCKERHUB_TOKEN` | Docker Hub access token (Account settings → Personal access tokens, Read & Write) |
 | Variables | `DOCKERHUB_REPO` | e.g. `yourname/wobble-isles`; the docker job is skipped while unset |
 | Variables | `APP_SERVER_URL` | Default server baked into the app, e.g. `wss://play.example.com` (after M5) |
 
-**Back up the updater key.** Its public half is in `tauri.conf.json`, and every installed app only accepts updates signed by it. If the key is lost, existing installs can never auto-update again: players would have to reinstall by hand.
+**Back up the updater key.** Its public half is in `tauri.conf.json`, and every installed app only accepts updates signed by it. If the key is lost, existing installs can never auto-update again: players would have to reinstall by hand. Back up both `~/.tauri/wobble-isles.key` and `~/.tauri/wobble-isles.key.password`: the key is useless without its password.
+
+The key was rotated (and given a password) on 2026-11-28, before the first public release, so no installed app trusts the old one.
 
 ## Retagging history
 

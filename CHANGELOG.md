@@ -16,6 +16,9 @@ one version for the whole game (web client, desktop app and server). How to cut 
 - Desktop app for Windows, macOS and Linux (Tauri) with a server picker and automatic updates.
 - Version shown in the menu and settings; the server turns away clients on a different protocol version and asks them to update.
 
+### Changed
+- New updater signing key, now password-protected (rotated before the first public release).
+
 ### Fixed
 - A Wobbler standing still for a few seconds could sink into the floor and get stuck.
 

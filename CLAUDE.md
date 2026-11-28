@@ -64,7 +64,7 @@ npm test             # Vitest (shared, server, client/test)
 npm run typecheck
 npm run build        # web client → dist/ (npm start serves dist + server on :2567)
 npm run app:dev      # Tauri window + dev server
-npm run app:build    # installers; signs update bundles with ~/.tauri/wobble-isles.key if present
+npm run app:build    # installers; signs update bundles with ~/.tauri/wobble-isles.key (+ .password) if present
 npm run loadtest -- 32 20
 ```
 
@@ -94,7 +94,7 @@ Server env: `WOBBLE_PLAN=round-a,round-b` forces the rounds before the Final.
   - One SemVer version for the whole game, kept in `package.json`.
   - Release with `npm version` on a release branch, merge it through a PR, then push the tag (`docs/RELEASING.md`). The `v*` tag runs `.github/workflows/release.yml`, which publishes the GitHub Release (installers + signed `latest.json`) and pushes the Docker Hub image.
   - The server image goes to **Docker Hub, not GitHub Packages** (owner's choice).
-- **Updater key:** public half in `src-tauri/tauri.conf.json`. The private half is `~/.tauri/wobble-isles.key` on the dev machine (backed up by the owner) and the `TAURI_SIGNING_PRIVATE_KEY` repo secret. Losing it breaks auto-update for every installed app.
+- **Updater key:** public half in `src-tauri/tauri.conf.json`. The private half is `~/.tauri/wobble-isles.key`, password-protected; the password is in `~/.tauri/wobble-isles.key.password`. Both live on the dev machine (backed up by the owner) and in the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets. Rotated on 2026-11-28, before the first release. Losing it breaks auto-update for every installed app.
 
 ## Gotchas
 
@@ -109,16 +109,16 @@ Server env: `WOBBLE_PLAN=round-a,round-b` forces the rounds before the Final.
 |---|---|
 | M0 design docs, M1 feel sandbox, M2 netcode, M3 Party mode | Merged (tags v0.1.0, v0.2.0, v0.3.0) |
 | M4 polish: characters, audio, settings, Fail Cam, awards, Jelly Clump, touch, PWA, Tauri app | Merged (PR #5) |
-| Versioning and releases (`release/versioning`): CHANGELOG, protocol check, auto-update, release workflow, Docker Hub | **PR open, waiting for merge** |
+| Versioning and releases: CHANGELOG, protocol check, auto-update, release workflow, Docker Hub | Merged (PR #6, #7) |
+| v0.4.0 release (`release/v0.4.0`): updater key rotated with a password, release commit | **PR open, waiting for merge**; tag `v0.4.0` pushed after the merge |
 
 **Next steps, in order:**
 
-1. The owner merges `release/versioning` and adds the repo secrets and variables listed in `docs/RELEASING.md`:
-   - `TAURI_SIGNING_PRIVATE_KEY`
+1. The owner adds the repo secrets and variables listed in `docs/RELEASING.md`, then merges `release/v0.4.0` with a merge commit:
+   - `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
    - `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
    - variable `DOCKERHUB_REPO`
-2. Cut the first real release:
-   - Follow the steps in `docs/RELEASING.md` → v0.4.0. CHANGELOG "Unreleased" already holds the M4 notes.
+2. Publish v0.4.0: push the tag `v0.4.0` (`docs/RELEASING.md`).
    - Then check that the workflow produced the installers and the Docker image.
 3. **M5 launch:**
    - Game server on a Singapore VPS. Players are in Vietnam; an earlier Helsinki host measured about 270 ms.
@@ -131,4 +131,3 @@ Server env: `WOBBLE_PLAN=round-a,round-b` forces the rounds before the Final.
    - More rounds (catalogue in `docs/DESIGN.md` §5).
    - Level editor, mobile apps.
 
-Open question for the owner: password-protect the updater key? It currently has none; rotating it is only free before the first public release.

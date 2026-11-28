@@ -111,24 +111,19 @@ Server env: `WOBBLE_PLAN=round-a,round-b` forces the rounds before the Final.
 | M0 design docs, M1 feel sandbox, M2 netcode, M3 Party mode | Merged (tags v0.1.0, v0.2.0, v0.3.0) |
 | M4 polish: characters, audio, settings, Fail Cam, awards, Jelly Clump, touch, PWA, Tauri app | Merged (PR #5) |
 | Versioning and releases: CHANGELOG, protocol check, auto-update, release workflow, Docker Hub | Merged (PR #6, #7) |
-| v0.4.0 release (`release/v0.4.0`): updater key rotated with a password, release commit | **PR open, waiting for merge**; tag `v0.4.0` pushed after the merge |
-| New Wobbler look (`art/wobbler-limbs`, stacked on `release/v0.4.0`): tall body, arms and legs, head swirl, candy heart | **PR open**, merge after v0.4.0 |
-| Loading screen + key art (`art/key-art`, stacked on `art/wobbler-limbs`) | **PR open** |
-| Continuous deployment (`cicd/deploy`, stacked on `art/key-art`) to wobble.eugenebox.uk via aeonamind/gitops (`infra/wobble-isles`, gitops PR #5) | **PR open** |
+| v0.4.0 release commit (key rotated with a password); never published | Merged (PR #8) |
+| New Wobbler look, loading screen + key art, continuous deployment | Merged (PR #9–#12) |
+| Game server live at wobble.eugenebox.uk (Argo CD app `wobble-isles`, gitops PR #5) | Live; deploys on every push to `main` |
+| v0.5.0, the first public release (`release/v0.5.0`) | **PR open**; tag `v0.5.0` pushed after the merge |
 
 **Next steps, in order:**
 
-1. The owner adds the repo secrets and variables listed in `docs/RELEASING.md`, then merges `release/v0.4.0` with a merge commit:
-   - `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
-   - `DOCKER_USERNAME`, `DOCKER_PASSWORD` and `GITOPS_TOKEN` (the same names as the owner's other repos)
-   - variable `DOCKERHUB_REPO` (`aeonamind/wobble-isles`)
-2. Publish v0.4.0: push the tag `v0.4.0` (`docs/RELEASING.md`).
-   - Then check that the workflow produced the installers and the Docker image.
-3. **M5 launch:**
-   - Game server on a Singapore VPS. Players are in Vietnam; an earlier Helsinki host measured about 270 ms.
-   - Runs the Docker Hub image, behind HTTPS/WSS.
-   - CI/CD and monitoring (`/health` reports version and protocol).
-   - Set `APP_SERVER_URL` so the desktop app defaults to the public server.
+1. The owner merges `release/v0.5.0` with a merge commit. Claude pushes the tag `v0.5.0` and checks the Release workflow: installers, signed `latest.json`, Docker image.
+2. Playtest with friends (`docs/DESIGN.md` §10) and log the feedback.
+3. **M5 launch (rest):**
+   - Move the server closer to Vietnam. The current Hetzner cluster in Europe measures about 380 ms.
+   - Monitoring and alerts (`/health` reports version and protocol).
+   - Bump the GitHub Actions to versions that run on Node 24.
    - Infra changes go through gitops PRs.
 4. **M6+:**
    - Show mode (16–32 players, elimination, matchmaking).

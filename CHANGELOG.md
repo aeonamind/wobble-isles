@@ -5,11 +5,7 @@ one version for the whole game (web client, desktop app and server). How to cut 
 
 ## [Unreleased]
 
-### Changed
-- New Wobbler look: a tall gummy-jelly body with short arms and legs, a head swirl, a glowing candy heart and an open smile. Arms swing when running, reach to grab and flail when thrown.
-- Loading screen with key art: the cast on a candy island, the title and a progress bar, instead of plain "Loading…".
-
-## [0.4.0] - 2026-11-28 · M4 Polish
+## [0.5.0] - 2026-11-28 · M4 Polish, first public release
 
 ### Added
 - Three character silhouettes (Bean, Gumdrop, Drop) and 8 colours, picked in the menu; Wobblers are now 1.25 m tall.
@@ -21,8 +17,11 @@ one version for the whole game (web client, desktop app and server). How to cut 
 - Touch controls for phones and tablets; the web game is installable (PWA).
 - Desktop app for Windows, macOS and Linux (Tauri) with a server picker and automatic updates.
 - Version shown in the menu and settings; the server turns away clients on a different protocol version and asks them to update.
+- The game server is online at wobble.eugenebox.uk, and the desktop app connects to it by default.
 
 ### Changed
+- New Wobbler look: a tall gummy-jelly body with short arms and legs, a head swirl, a glowing candy heart and an open smile. Arms swing when running, reach to grab and flail when thrown.
+- Loading screen with key art: the cast on a candy island, the title and a progress bar, instead of plain "Loading…".
 - New updater signing key, now password-protected (rotated before the first public release).
 
 ### Fixed
@@ -46,8 +45,8 @@ one version for the whole game (web client, desktop app and server). How to cut 
 - Run, jump, dive, grab and throw; ragdolls; ice, bouncers, conveyors and sticky floors; gamepad support.
 - Toon renderer with automatic graphics quality, and an in-game tuning panel.
 
-[Unreleased]: https://github.com/aeonamind/wobble-isles/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/aeonamind/wobble-isles/compare/v0.3.0...v0.4.0
+[Unreleased]: https://github.com/aeonamind/wobble-isles/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/aeonamind/wobble-isles/compare/v0.3.0...v0.5.0
 [0.3.0]: https://github.com/aeonamind/wobble-isles/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/aeonamind/wobble-isles/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/aeonamind/wobble-isles/releases/tag/v0.1.0

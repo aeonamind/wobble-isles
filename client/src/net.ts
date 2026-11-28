@@ -4,6 +4,7 @@
 import { Client, type Room } from "@colyseus/sdk";
 import {
   INTERP_DELAY,
+  PROTOCOL_VERSION,
   ROOM_NAME,
   normalizeRoomCode,
   unpackBall,
@@ -90,7 +91,8 @@ export class NetClient {
 
   static async connect(how: { create: true } | { code: string }, profile: { name: string; color?: number; style?: string }, lagMs = 0): Promise<NetClient> {
     const client = new Client(serverUrl());
-    const room = "create" in how ? await client.create(ROOM_NAME, profile) : await client.joinById(normalizeRoomCode(how.code), profile);
+    const opts = { ...profile, v: PROTOCOL_VERSION };
+    const room = "create" in how ? await client.create(ROOM_NAME, opts) : await client.joinById(normalizeRoomCode(how.code), opts);
     const welcome = await new Promise<WelcomeMsg>((resolve, reject) => {
       const t = setTimeout(() => reject(new Error("Server did not answer")), 8000);
       room.onMessage("welcome", (w: WelcomeMsg) => {

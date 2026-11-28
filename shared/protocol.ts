@@ -5,6 +5,14 @@ import type { NetMsg, NetState, SimEvent, Wobbler, WobblerState } from "./sim";
 import type { Quat, Vec3 } from "./math";
 
 export const ROOM_NAME = "party";
+/**
+ * Bump whenever client ⇄ server messages or the shared simulation change in a way old clients can't
+ * follow. The desktop app can be older than the server; a client with a different value is turned
+ * away with VERSION_MISMATCH and asked to update (docs/RELEASING.md).
+ */
+export const PROTOCOL_VERSION = 4;
+/** Join error code: client and server speak different protocol versions. */
+export const VERSION_MISMATCH = 4426;
 /** Hard cap per room (Party mode UI targets 2–8; Show mode scales to 32). */
 export const MAX_PLAYERS = 32;
 /** Client state uploads and server snapshots per second. */

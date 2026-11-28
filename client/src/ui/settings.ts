@@ -47,6 +47,7 @@ export class SettingsPanel {
   private card = $("settings");
 
   constructor(quality: Quality) {
+    document.getElementById("settings-version")!.textContent = `Wobble Isles v${__APP_VERSION__}`;
     const s = this.settings;
     const slider = (id: keyof Settings, label: string, min: number, max: number, step: number, fmt: (v: number) => string) => {
       const row = document.createElement("label");

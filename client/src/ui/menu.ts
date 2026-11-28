@@ -1,4 +1,6 @@
+import { VERSION_MISMATCH } from "../../../shared/protocol";
 import { isApp, normalizeServer, saveServer, serverUrl } from "../platform";
+import { checkForUpdate, type UpdateOffer } from "../updater";
 
 // Title menu: name, look (body style + colour), create a room, join by code, or practise alone.
 
@@ -61,6 +63,7 @@ export function showMenu(prefillCode: string, connect: Connect): Promise<{ net: 
   const codeIn = $<HTMLInputElement>("menu-code");
   const error = $("menu-error");
   form.hidden = false;
+  document.getElementById("help")!.hidden = true; // the HUD shows it again once in game
   nameIn.value = localStorage.getItem(NAME_KEY) ?? "";
   codeIn.value = prefillCode.toUpperCase();
   (prefillCode ? codeIn : nameIn).focus();
@@ -71,6 +74,29 @@ export function showMenu(prefillCode: string, connect: Connect): Promise<{ net: 
     $("menu-server-row").hidden = false;
     serverIn.value = serverUrl().replace(/^wss?:\/\//, "");
   }
+
+  $("menu-version").textContent = `v${__APP_VERSION__}${isApp ? " · desktop" : ""}`;
+  // Desktop app: offer a newer release (checked in the background).
+  let offer: UpdateOffer | null = null;
+  const showOffer = (o: UpdateOffer) => {
+    offer = o;
+    $("menu-update-text").textContent = `Wobble Isles ${o.version} is out!`;
+    $("menu-update").hidden = false;
+  };
+  if (isApp) void checkForUpdate().then((o) => o && showOffer(o));
+  $("menu-update-go").onclick = async () => {
+    if (!offer) return;
+    const go = $<HTMLButtonElement>("menu-update-go");
+    go.disabled = true;
+    try {
+      await offer.install((p) => ($("menu-update-text").textContent = p == null ? "Downloading…" : `Downloading… ${Math.round(p * 100)}%`));
+      $("menu-update-text").textContent = "Restarting…";
+    } catch (e) {
+      console.warn("Update failed:", e);
+      $("menu-update-text").textContent = "Update failed. Try again later.";
+      go.disabled = false;
+    }
+  };
 
   // Look picker
   const look = savedLook();
@@ -140,9 +166,25 @@ export function showMenu(prefillCode: string, connect: Connect): Promise<{ net: 
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.warn("Could not join:", e);
-        error.textContent = /not found|invalid|locked|full/i.test(msg)
-          ? "That room doesn't exist or is full. Check the code."
-          : "Can't reach the game server. Is it running?";
+        const code = (e as { code?: number }).code;
+        if (code === VERSION_MISMATCH) {
+          // Old client, newer server (or the other way round).
+          if (isApp) {
+            error.textContent = "This server runs a different version of Wobble Isles. Update the app to play.";
+            void checkForUpdate().then((o) => o && showOffer(o));
+          } else {
+            // Reload once to fetch the new page; never loop if that didn't help.
+            if (sessionStorage.getItem("wobble-isles.reloaded")) error.textContent = "This server runs a different version of Wobble Isles.";
+            else {
+              sessionStorage.setItem("wobble-isles.reloaded", "1");
+              error.textContent = "Wobble Isles was just updated. Reloading…";
+              setTimeout(() => location.reload(), 1500);
+            }
+          }
+        } else
+          error.textContent = /not found|invalid|locked|full/i.test(msg)
+            ? "That room doesn't exist or is full. Check the code."
+            : "Can't reach the game server. Is it running?";
         error.hidden = false;
         buttons().forEach((b) => (b.disabled = false));
       }

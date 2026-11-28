@@ -1,3 +1,5 @@
+import { isApp, normalizeServer, saveServer, serverUrl } from "../platform";
+
 // Title menu: name, look (body style + colour), create a room, join by code, or practise alone.
 
 import { BODY_STYLES, cleanName, cleanStyle, type BodyStyle } from "../../../shared/protocol";
@@ -63,6 +65,12 @@ export function showMenu(prefillCode: string, connect: Connect): Promise<{ net: 
   codeIn.value = prefillCode.toUpperCase();
   (prefillCode ? codeIn : nameIn).focus();
   codeIn.addEventListener("input", () => (codeIn.value = codeIn.value.toUpperCase().replace(/[^A-Z0-9]/g, "")));
+  // Desktop app: the page is local, so the player says which server to play on.
+  const serverIn = $<HTMLInputElement>("menu-server");
+  if (isApp) {
+    $("menu-server-row").hidden = false;
+    serverIn.value = serverUrl().replace(/^wss?:\/\//, "");
+  }
 
   // Look picker
   const look = savedLook();
@@ -113,6 +121,16 @@ export function showMenu(prefillCode: string, connect: Connect): Promise<{ net: 
     };
     const attempt = async (how: { create: true } | { code: string }) => {
       error.hidden = true;
+      if (isApp) {
+        const url = normalizeServer(serverIn.value);
+        if (!url) {
+          error.textContent = "Enter the game server address, e.g. 192.168.1.20";
+          error.hidden = false;
+          serverIn.focus();
+          return;
+        }
+        saveServer(url);
+      }
       buttons().forEach((b) => (b.disabled = true));
       try {
         const p = profile();
@@ -121,6 +139,7 @@ export function showMenu(prefillCode: string, connect: Connect): Promise<{ net: 
         resolve({ net, profile: p });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        console.warn("Could not join:", e);
         error.textContent = /not found|invalid|locked|full/i.test(msg)
           ? "That room doesn't exist or is full. Check the code."
           : "Can't reach the game server. Is it running?";

@@ -2,6 +2,7 @@
 
 import type { RosterEntry } from "../../../shared/protocol";
 import type { Wobbler } from "../../../shared/sim";
+import { inviteUrl } from "../platform";
 import { PLAYER_COLORS } from "../render/wobbler";
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -18,9 +19,7 @@ export class Hud {
     if (localStorage.getItem("wobble-isles.helpSeen")) $("help").hidden = true;
     else setTimeout(() => localStorage.setItem("wobble-isles.helpSeen", "1"), 20000);
     $("room-copy").onclick = async () => {
-      const url = new URL(location.href);
-      url.search = new URLSearchParams({ room: $("room-code").textContent ?? "" }).toString();
-      await navigator.clipboard?.writeText(url.toString()).catch(() => {});
+      await navigator.clipboard?.writeText(inviteUrl($("room-code").textContent ?? "")).catch(() => {});
       $("room-copy").textContent = "Copied!";
       setTimeout(() => ($("room-copy").textContent = "Copy invite link"), 1500);
     };

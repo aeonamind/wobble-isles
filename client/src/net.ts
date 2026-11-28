@@ -17,16 +17,9 @@ import {
 } from "../../shared/protocol";
 import type { Quat, Vec3 } from "../../shared/math";
 import type { ShowMsg } from "../../shared/show";
+import { serverUrl } from "./platform";
 import { DT, type NetMsg, type NetState, type SimEvent } from "../../shared/sim";
 
-function serverUrl(): string {
-  const fromEnv = import.meta.env.VITE_SERVER_URL as string | undefined;
-  if (fromEnv) return fromEnv;
-  const proto = location.protocol === "https:" ? "wss" : "ws";
-  // Vite dev server → game server on the same machine, port 2567 (works over LAN too).
-  if (location.port === "5180") return `${proto}://${location.hostname}:2567`;
-  return `${proto}://${location.host}`;
-}
 
 interface Snapshot {
   time: number; // server time (s)

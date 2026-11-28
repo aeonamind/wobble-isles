@@ -141,3 +141,7 @@ li .total { min-width: 44px; text-align: right; }
 .tbtn.gremlin { right: 130px; bottom: 120px; width: 84px; height: 84px; background: #9b6bff; color: #fff; font-size: 12px; }
 body.touch #help, body.touch #perf { display: none; }
 body.touch #show-spectate { bottom: 150px; }
+
+/* Desktop app: which game server to use */
+.server-row { font-size: 13px; opacity: 0.85; }
+.server-row input { font-size: 14px; }

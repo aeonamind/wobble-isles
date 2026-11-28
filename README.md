@@ -47,6 +47,22 @@ Testing: start the server with `WOBBLE_PLAN=gumball-goal,ice-floes` to force the
 - **Phones and tablets:** on-screen joystick, drag to look, Jump / Dive / Grab buttons (and Avalanche for Gremlins). Landscape works best.
 - **Install:** the game is a PWA. "Install app" / "Add to Home Screen" gives a full-screen icon; repeat visits load from cache.
 
+### Desktop app (Tauri)
+
+The same game in its own window, as a Windows / macOS / Linux installer. Needs [Rust](https://rustup.rs)
+(on Windows also the Visual Studio C++ Build Tools and WebView2, which Windows 11 already has).
+
+```bash
+npm run app:dev     # app window + local game server, hot reload
+npm run app:build   # installers in src-tauri/target/release/bundle/ (nsis .exe, .msi)
+```
+
+The app's page lives inside the app, so the menu has a **Server** field: `localhost` for a server on this PC,
+a LAN address such as `192.168.1.20` when a friend hosts with `npm start`, or the public server once it is deployed.
+Bake a default in at build time with `VITE_SERVER_URL=wss://… npm run app:build`. **Copy invite link** in the app
+gives the server's web address, so friends without the app can join from a browser.
+CI: *Actions → Desktop app → Run workflow* (or push an `app-v*` tag) builds all three platforms.
+
 **Production:** `npm run build && npm start` serves the game and the server on one port (default 2567). Or `docker build -t wobble-isles .`
 
 **Controls:** WASD move · mouse camera · Space jump · Shift / right mouse dive · hold left mouse / E to grab, release to throw · R respawn. Land on someone's head to bounce (press jump on landing for a bigger boost).
@@ -62,6 +78,7 @@ and prints avg FPS, 1% low and p95 frame time. The mobile gate is ≥ 50 FPS ave
 - `shared/` — deterministic simulation (Rapier character controller, hazards, level data, tuning), the round library (`rounds.ts`) and Party rules (`show.ts`). Runs in Node and the browser.
 - `server/` — Colyseus Party room (clock, hazards, balls, NPC dummies, interaction referee, snapshots) and `ShowRunner` (phases, round referees, stars, Bounty, House Rules, Gremlins).
 - `client/` — Three.js rendering, input (keyboard, mouse, gamepad, touch), camera, menu and settings, show overlays, procedural audio (`audio.ts`), Fail Cam (`failcam.ts`), netcode client, tuning panel. `client/public/` holds the PWA manifest, icons and service worker.
+- `src-tauri/` — desktop app shell (Tauri 2): window, icons, installers. No game logic.
 - `tools/loadtest.ts` — bot load test.
 
 ## Stack

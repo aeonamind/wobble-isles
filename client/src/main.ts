@@ -2,7 +2,17 @@ import { initPhysics } from "../../shared/sim";
 import { Game, QUALITY_ORDER, type Quality } from "./game";
 import { NetClient } from "./net";
 import { savedLook, showMenu } from "./ui/menu";
+import { isApp } from "./platform";
 import "./style.css";
+
+// F11: full screen (browsers do this themselves; the desktop app needs it).
+if (isApp)
+  addEventListener("keydown", (e) => {
+    if (e.code !== "F11") return;
+    e.preventDefault();
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen().catch(() => {});
+  });
 
 const QUALITY_KEY = "wobble-isles.quality";
 const params = new URLSearchParams(location.search);
@@ -25,7 +35,8 @@ addEventListener("keydown", (e) => {
 });
 
 // Installable app + fast repeat loads (production only; dev uses Vite HMR).
-if (import.meta.env.PROD && "serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(() => {});
+// The desktop app ships its files inside the app, so it needs neither.
+if (import.meta.env.PROD && !isApp && "serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(() => {});
 
 await initPhysics();
 document.getElementById("loading")?.remove();

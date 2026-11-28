@@ -15,19 +15,21 @@
    - **Glowing** means goal or interactive: crown, finish arch, checkpoints.
 3. **Toy materials, not realism.** Plastic, rubber, jelly, candy, painted wood, soft snow. No grit, no grime, no blood.
 4. **One cohesive world.** Six islands vary in palette and props but share the same rendering, outline, lighting model and proportions.
-5. **Original.** We do not reference Fall Guys' bean silhouette, costumes, logo, typography or level layouts. Our contestants are a distinct design (§2).
+5. **Original.** We share the genre's tall, limbed jelly contestant, but not Fall Guys' visor face, costumes, logo, typography or level layouts. Our Wobblers are told apart by the printed face, the head swirl and the candy heart (§2).
 
 ## 2. Contestants ("Wobblers")
 
 ### 2.1 Base design
 
-- **Silhouette:** a **gumdrop / jelly blob**. The base is wider than the top, with a soft dome head that merges into the body (no neck).
-  - About 1.0 m tall in world units.
-  - **No arms at rest.** Two small nub hands appear (pop out) when grabbing, diving or emoting. This is a signature quirk.
-  - Two stubby feet.
-- **Material:** translucent jelly (subsurface-like toon shader) with a glossy highlight, rendered with our toon ramp and outline.
-- **Face:** big expressive eyes, drawn as a texture on a face decal, swappable at runtime for expression changes. Small mouth. Blush cheeks.
-  - Expressions: neutral, determined (running), shocked (falling), dizzy (ragdoll), smug (winning), crying-laughing (emote).
+- **Silhouette:** a **tall gummy-jelly body** (about 1.25 m). Rounded-rectangle sides and a soft dome, with the head merged into the body (no neck). Three cuts share the collider: **Bean** (straight sides), **Gumdrop** (wide hips), **Drop** (pear, narrow top).
+  - **Short rubbery arms** with round mitten hands and a thumb, hinged at the shoulder. They hang at the sides, pump when running, reach forward to grab and flail when thrown.
+  - **Short stubby legs** with chunky feet, a darker shade of the body colour.
+  - **Head swirl:** a soft-serve curl of jelly on top. This is a signature quirk.
+  - **Candy heart:** a glowing cream heart on the belly. This is a signature quirk.
+  - Concept sheet: the owner's "Wobbler" turnaround (Nov 2026), generated from the prompt brief.
+- **Material:** glossy jelly, rendered with our toon ramp and outline, with white specular highlights.
+- **Face:** big expressive eyes drawn as a texture on a body-hugging patch, swappable at runtime for expression changes. Open smile with a pink tongue. Blush cheeks. **No visor or face window**: the face is printed on the jelly.
+  - Expressions: neutral, determined (running), shocked (falling), dizzy (ragdoll), happy (sliding), strain (holding).
 - **Colours:** each player has a primary colour from the **player palette** (§3.2). Costumes go over the base.
 
 ### 2.2 Motion (procedural)
@@ -40,9 +42,9 @@ Animation is mostly **procedural** on top of a few authored poses, because a jel
 | Run | Hop gait, squash on contact (Y −12%) and stretch on push-off (Y +10%), lean into velocity |
 | Jump | Anticipation squash, stretch on the way up, splat on landing scaled by impact speed |
 | Dive | Stretch horizontally into a "torpedo", belly slide with a friction trail |
-| Grab | Nub hands pop out with an elastic overshoot, and the body leans back while pulling |
+| Grab | Arms swing forward with an elastic overshoot, and the body leans back while pulling |
 | Hit / bump | Jelly wobble: a damped spring on scale and shear for about 0.6 s |
-| Ragdoll | Physics-driven tumble of a simplified 3-body chain (body and two feet), then a get-up "boing" |
+| Ragdoll | Tumble with flailing arms and legs, then a get-up "boing" |
 | Fall out | Flail, then a shrinking spin into the clouds or a splash into the water |
 
 ### 2.3 Customisation (planned)

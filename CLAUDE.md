@@ -111,6 +111,7 @@ Server env: `WOBBLE_PLAN=round-a,round-b` forces the rounds before the Final.
 | M4 polish: characters, audio, settings, Fail Cam, awards, Jelly Clump, touch, PWA, Tauri app | Merged (PR #5) |
 | Versioning and releases: CHANGELOG, protocol check, auto-update, release workflow, Docker Hub | Merged (PR #6, #7) |
 | v0.4.0 release (`release/v0.4.0`): updater key rotated with a password, release commit | **PR open, waiting for merge**; tag `v0.4.0` pushed after the merge |
+| New Wobbler look (`art/wobbler-limbs`, stacked on `release/v0.4.0`): tall body, arms and legs, head swirl, candy heart | **PR open**, merge after v0.4.0 |
 
 **Next steps, in order:**
 

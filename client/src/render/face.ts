@@ -79,8 +79,8 @@ function draw(g: CanvasRenderingContext2D, expr: Expression, blink: boolean) {
   } else {
     switch (expr) {
       case "neutral":
-        eye(g, L, Y, 22, 27);
-        eye(g, R, Y, 22, 27);
+        eye(g, L, Y, 22, 27, 0.78);
+        eye(g, R, Y, 22, 27, 0.78);
         break;
       case "determined":
         eye(g, L, Y + 3, 21, 24, 0.6, 0.3);
@@ -160,8 +160,42 @@ function draw(g: CanvasRenderingContext2D, expr: Expression, blink: boolean) {
       g.arc(mx, my + 10, 10, Math.PI * 1.2, Math.PI * 1.8);
       g.stroke();
       break;
-    default:
-      g.arc(mx, my - 6, 9, Math.PI * 0.15, Math.PI * 0.85);
-      g.stroke();
+    default: {
+      // Open smile with a pink tongue
+      g.fillStyle = INK;
+      g.beginPath();
+      g.moveTo(mx - 19, my - 10);
+      g.quadraticCurveTo(mx, my - 5, mx + 19, my - 10);
+      g.quadraticCurveTo(mx + 17, my + 16, mx, my + 17);
+      g.quadraticCurveTo(mx - 17, my + 16, mx - 19, my - 10);
+      g.fill();
+      g.fillStyle = "#ff7a9a";
+      g.beginPath();
+      g.ellipse(mx, my + 9, 10, 6, 0, 0, Math.PI * 2);
+      g.fill();
+    }
   }
+}
+
+let heart: THREE.CanvasTexture | null = null;
+
+/** The glowing candy heart on every Wobbler's belly (cream, soft edge). */
+export function heartTexture(): THREE.CanvasTexture {
+  if (heart) return heart;
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d")!;
+  const path = new Path2D("M64 108 C 20 80, 8 52, 26 34 C 40 20, 58 26, 64 40 C 70 26, 88 20, 102 34 C 120 52, 108 80, 64 108 Z");
+  g.shadowColor = "rgba(255, 236, 180, 0.9)";
+  g.shadowBlur = 16;
+  g.fillStyle = "rgba(255, 233, 170, 0.92)";
+  g.fill(path);
+  g.shadowBlur = 0;
+  g.fillStyle = "rgba(255, 250, 225, 0.7)";
+  g.beginPath();
+  g.ellipse(46, 46, 10, 6, -0.6, 0, Math.PI * 2);
+  g.fill();
+  heart = new THREE.CanvasTexture(c);
+  heart.colorSpace = THREE.SRGBColorSpace;
+  return heart;
 }

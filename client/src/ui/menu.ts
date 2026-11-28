@@ -6,7 +6,8 @@ import { checkForUpdate, type UpdateOffer } from "../updater";
 
 import { BODY_STYLES, cleanName, cleanStyle, type BodyStyle } from "../../../shared/protocol";
 import type { NetClient } from "../net";
-import { PLAYER_COLORS, bodyRadiusAt } from "../render/wobbler";
+import { Color } from "three";
+import { LEG_TOP, PLAYER_COLORS, bodyRadiusAt, bodyTop, faceAt } from "../render/wobbler";
 import { WOBBLER_HEIGHT } from "../../../shared/sim";
 
 const NAME_KEY = "wobble-isles.name";
@@ -35,24 +36,38 @@ export function savedLook(): { color: number; style: BodyStyle } {
 
 const hex = (c: number) => "#" + c.toString(16).padStart(6, "0");
 
-/** Side silhouette of a body style as an SVG path (front view, face dots included). */
+/** Front silhouette of a body style as SVG: body, legs, arms, head swirl and eyes. */
 function silhouette(style: BodyStyle, color: number) {
   const H = WOBBLER_HEIGHT;
-  const scale = 52 / H;
+  const scale = 50 / H;
+  const Y = (y: number) => (58 - y * scale).toFixed(1);
   const pts: string[] = [];
-  const steps = 24;
+  const steps = 28;
+  const y0 = H * LEG_TOP;
+  const y1 = H * bodyTop(style);
   for (let i = 0; i <= steps; i++) {
-    const y = (i / steps) * H;
-    pts.push(`${(30 + bodyRadiusAt(y, style) * scale).toFixed(1)},${(58 - y * scale).toFixed(1)}`);
+    const y = y0 + ((y1 - y0) * i) / steps;
+    pts.push(`${(30 + bodyRadiusAt(y, style) * scale).toFixed(1)},${Y(y)}`);
   }
   for (let i = steps; i >= 0; i--) {
-    const y = (i / steps) * H;
-    pts.push(`${(30 - bodyRadiusAt(y, style) * scale).toFixed(1)},${(58 - y * scale).toFixed(1)}`);
+    const y = y0 + ((y1 - y0) * i) / steps;
+    pts.push(`${(30 - bodyRadiusAt(y, style) * scale).toFixed(1)},${Y(y)}`);
   }
-  const faceY = 58 - H * (style === "drop" ? 0.44 : style === "gumdrop" ? 0.58 : 0.62) * scale;
+  const ink = "#3a2450";
+  const dark = hex(new Color(color).multiplyScalar(0.72).getHex());
+  const sx = (H * 0.55 - 0.2) * scale;
+  const armX = (bodyRadiusAt(H * 0.55, style) + 0.06) * scale;
+  const faceY = Number(Y(H * faceAt(style) + 0.02));
   return `<svg viewBox="0 0 60 62" width="54" height="56" aria-hidden="true">
-    <polygon points="${pts.join(" ")}" fill="${hex(color)}" stroke="#3a2450" stroke-width="2.5" stroke-linejoin="round"/>
-    <ellipse cx="25" cy="${faceY}" rx="2.2" ry="3.2" fill="#3a2450"/><ellipse cx="35" cy="${faceY}" rx="2.2" ry="3.2" fill="#3a2450"/>
+    <g stroke="${ink}" stroke-width="2.2" stroke-linejoin="round">
+      <rect x="21" y="${Y(y0 + 0.04)}" width="7" height="${(y0 * scale).toFixed(1)}" rx="3.5" fill="${dark}"/>
+      <rect x="32" y="${Y(y0 + 0.04)}" width="7" height="${(y0 * scale).toFixed(1)}" rx="3.5" fill="${dark}"/>
+      <ellipse cx="${(30 - armX).toFixed(1)}" cy="${(58 - sx).toFixed(1)}" rx="3.6" ry="5.5" transform="rotate(25 ${(30 - armX).toFixed(1)} ${(58 - sx).toFixed(1)})" fill="${hex(color)}"/>
+      <ellipse cx="${(30 + armX).toFixed(1)}" cy="${(58 - sx).toFixed(1)}" rx="3.6" ry="5.5" transform="rotate(-25 ${(30 + armX).toFixed(1)} ${(58 - sx).toFixed(1)})" fill="${hex(color)}"/>
+      <circle cx="30.5" cy="${Y(y1 + 0.02)}" r="3.4" fill="${hex(color)}"/>
+      <polygon points="${pts.join(" ")}" fill="${hex(color)}"/>
+    </g>
+    <ellipse cx="25.5" cy="${faceY}" rx="2.3" ry="3.2" fill="${ink}"/><ellipse cx="34.5" cy="${faceY}" rx="2.3" ry="3.2" fill="${ink}"/>
   </svg>`;
 }
 

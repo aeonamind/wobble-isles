@@ -41,6 +41,37 @@
       <p><button type="button" onclick="location.reload()">Reconnect</button></p>
     </div>
 
+    <div id="show-lobby" class="card" hidden>
+      <b>Party lobby</b>
+      <p id="show-lobby-sub"></p>
+      <button type="button" id="show-start">Start the show</button>
+    </div>
+    <div id="show-top" hidden>
+      <div class="top-row"><b id="top-name"></b><span id="top-timer"></span></div>
+      <div id="top-status"></div>
+      <div id="top-sub"></div>
+    </div>
+    <div id="show-intro" class="card overlay-card" hidden>
+      <p class="intro-index" id="intro-index"></p>
+      <h1 id="intro-name"></h1>
+      <span class="pill" id="intro-cat"></span>
+      <p class="intro-blurb" id="intro-blurb"></p>
+      <div class="intro-extra" id="intro-extra"></div>
+    </div>
+    <div id="show-count" hidden></div>
+    <div id="show-spectate" hidden></div>
+    <div id="show-toasts"></div>
+    <div id="show-results" class="card" hidden>
+      <h2 id="results-title"></h2>
+      <p class="sub" id="results-sub"></p>
+      <ol id="results-list"></ol>
+    </div>
+    <div id="show-podium" class="card" hidden>
+      <p class="intro-index">Show Champion</p>
+      <h1 id="podium-champ"></h1>
+      <ol id="podium-list"></ol>
+    </div>
+
     <div id="perf" title="P toggles"><span id="perf-fps">-- FPS</span><span id="perf-ping">ping —</span><span id="perf-q" class="off">Auto</span></div>
     <pre id="stats" hidden></pre>
     <pre id="bench" hidden></pre>

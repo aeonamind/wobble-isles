@@ -12,7 +12,7 @@ export class CameraRig {
   private initialised = false;
   private shake = 0;
 
-  constructor(private world: RAPIER.World) {}
+  constructor(public world: RAPIER.World) {}
 
   addLook(dx: number, dy: number) {
     this.yaw -= dx;

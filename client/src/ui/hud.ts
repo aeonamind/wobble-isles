@@ -43,17 +43,30 @@ export class Hud {
   }
 
   /** Room code chip + player list (online only). */
-  setRoom(code: string, roster: RosterEntry[], me: number) {
+  private roomKey = "";
+
+  /** Room code chip + player list (online only), with show stars once a show is running. */
+  setRoom(code: string, roster: RosterEntry[], me: number, stars?: Record<number, number> | null, leader?: number | null) {
+    const ordered = stars ? [...roster].sort((a, b) => (stars[b.id] ?? 0) - (stars[a.id] ?? 0)) : roster;
+    const key = JSON.stringify([code, ordered, me, stars, leader]);
+    if (key === this.roomKey) return;
+    this.roomKey = key;
     const el = $("room");
     el.hidden = false;
     $("room-code").textContent = code;
     const list = $("room-players");
     list.replaceChildren(
-      ...roster.map((p) => {
+      ...ordered.map((p) => {
         const li = document.createElement("li");
         const dot = document.createElement("i");
         dot.style.background = "#" + PLAYER_COLORS[p.color % PLAYER_COLORS.length].toString(16).padStart(6, "0");
-        li.append(dot, document.createTextNode(p.name + (p.id === me ? " (you)" : "") + (p.host ? " ★" : "")));
+        li.append(dot, document.createTextNode((p.id === leader ? "♛ " : "") + p.name + (p.id === me ? " (you)" : "") + (p.host ? " · host" : "")));
+        if (stars) {
+          const s = document.createElement("span");
+          s.className = "stars";
+          s.textContent = `${stars[p.id] ?? 0}★`;
+          li.append(s);
+        }
         return li;
       }),
     );

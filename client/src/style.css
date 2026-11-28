@@ -37,3 +37,47 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #ffb3d9; fon
 #room li { display: flex; align-items: center; gap: 6px; line-height: 1.6; font-weight: 700; }
 #room li i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #3a2450; }
 #disconnected { z-index: 6; pointer-events: auto; }
+
+/* ───────── Party show ───────── */
+#show-lobby { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); padding: 12px 20px; text-align: center; font-size: 15px; z-index: 3; box-shadow: 0 5px 0 #3a2450; border-width: 3px; border-radius: 20px; }
+#show-lobby p { margin: 4px 0 8px; font-weight: 700; opacity: 0.8; }
+#show-lobby button { font: inherit; font-weight: 800; font-size: 18px; padding: 8px 18px; border-radius: 14px; border: 3px solid #3a2450; background: #ff4f8b; color: #fff; box-shadow: 0 4px 0 #3a2450; cursor: pointer; }
+#show-lobby button:active { transform: translateY(3px); box-shadow: 0 1px 0 #3a2450; }
+#show-top { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); min-width: 260px; padding: 8px 18px 10px; text-align: center; color: #fff; background: #3a2450dd; border-radius: 18px; pointer-events: none; z-index: 2; }
+#show-top .top-row { display: flex; justify-content: center; gap: 14px; align-items: baseline; }
+#top-name { font-size: 16px; letter-spacing: 0.5px; opacity: 0.85; }
+#top-timer { font: 800 26px/1 ui-monospace, monospace; color: #ffe156; }
+#top-timer.low { color: #ff7a7a; animation: pulse 0.5s infinite alternate; }
+#top-status { font-size: 20px; font-weight: 800; margin-top: 2px; }
+#top-sub { font-size: 13px; font-weight: 700; opacity: 0.8; }
+@keyframes pulse { to { transform: scale(1.15); } }
+#show-intro { min-width: min(460px, 90vw); }
+#show-intro h1 { font-size: 52px; margin: 2px 0 8px; }
+.intro-index { margin: 0; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; font-size: 14px; opacity: 0.7; }
+.intro-blurb { font-size: 18px; font-weight: 700; margin: 12px 0 6px; }
+.intro-extra { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.pill { display: inline-block; padding: 4px 12px; border-radius: 999px; border: 2px solid #3a2450; font-weight: 800; font-size: 13px; color: #3a2450; background: #fff; }
+.pill.gold { background: #ffe156; }
+.pill.gremlin { background: #9b6bff; color: #fff; }
+.pill.rule { background: #57d9b7; }
+#show-count { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); font-size: 140px; font-weight: 900; color: #ffe156; -webkit-text-stroke: 5px #3a2450; text-shadow: 0 10px 0 #3a2450; pointer-events: none; z-index: 4; }
+#show-count.pop { animation: pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1); }
+@keyframes pop { from { transform: translate(-50%, -50%) scale(0.3); opacity: 0; } }
+#show-spectate { position: fixed; left: 50%; bottom: 112px; white-space: nowrap; transform: translateX(-50%); padding: 6px 16px; border-radius: 999px; background: #3a2450cc; color: #fff; font-weight: 800; pointer-events: none; }
+#show-toasts { position: fixed; right: 14px; top: 14px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; z-index: 3; }
+.toast { padding: 8px 14px; border-radius: 14px; background: #fff8fb; color: #3a2450; border: 3px solid #3a2450; box-shadow: 0 4px 0 #3a2450; font-weight: 800; max-width: 340px; animation: toast-in 0.3s cubic-bezier(0.2, 1.4, 0.4, 1); transition: opacity 0.4s, transform 0.4s; }
+.toast.out { opacity: 0; transform: translateX(30px); }
+@keyframes toast-in { from { transform: translateX(60px); opacity: 0; } }
+#show-results, #show-podium { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, 92vw); max-height: 80vh; overflow: auto; padding: 20px 26px; text-align: center; pointer-events: none; z-index: 4; }
+#show-results h2 { margin: 0; font-size: 28px; color: #ff4f8b; }
+#show-results ol, #show-podium ol { list-style: none; margin: 10px 0 0; padding: 0; text-align: left; }
+#show-results li, #show-podium li { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 12px; font-weight: 800; }
+#show-results li.me, #show-podium li.me { background: #ffe15666; }
+li .rank { width: 34px; color: #ff4f8b; }
+li .dot, #room li i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #3a2450; flex: none; }
+li .who { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+li .gain { color: #2bb5a8; }
+li .total { min-width: 44px; text-align: right; }
+#show-podium h1 { font-size: 46px; margin: 4px 0; }
+#show-podium li:first-child { font-size: 20px; background: #ffe156aa; }
+#room li .stars { margin-left: auto; padding-left: 10px; color: #c78a00; }

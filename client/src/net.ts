@@ -16,6 +16,7 @@ import {
   type WelcomeMsg,
 } from "../../shared/protocol";
 import type { Quat, Vec3 } from "../../shared/math";
+import type { ShowMsg } from "../../shared/show";
 import { DT, type NetMsg, type NetState, type SimEvent } from "../../shared/sim";
 
 function serverUrl(): string {
@@ -44,6 +45,11 @@ export class NetClient {
   connected = true;
   onRoster: (r: RosterEntry[]) => void = () => {};
   onDisconnect: () => void = () => {};
+  /** Latest Party show state from the server. */
+  show: ShowMsg | null = null;
+  onShow: (m: ShowMsg) => void = () => {};
+  /** Hunt crown from the newest snapshot: holder id (0 = loose) and position. */
+  crown: { holder: number; x: number; y: number; z: number } | null = null;
 
   private snaps: Snapshot[] = [];
   private inbox: NetMsg[] = [];
@@ -68,6 +74,10 @@ export class NetClient {
 
     this.recv<SnapMsg>("snap", (m) => this.onSnap(m));
     this.recv<NetMsg>("i", (m) => this.inbox.push(m));
+    this.recv<ShowMsg>("show", (m) => {
+      this.show = m;
+      this.onShow(m);
+    });
     this.recv<RosterMsg>("roster", (m) => {
       this.roster = m.players;
       this.onRoster(m.players);
@@ -115,6 +125,16 @@ export class NetClient {
     this.send("s", msg);
   }
 
+  /** Host only: start the show from the lobby. */
+  startShow() {
+    this.send("start", {});
+  }
+
+  /** Final, non-finalists: trigger an avalanche. */
+  gremlin() {
+    this.send("gremlin", {});
+  }
+
   setName(name: string) {
     this.send("profile", { name });
   }
@@ -150,6 +170,7 @@ export class NetClient {
     this.snaps.push({ time: m.t * DT, wobblers, balls: m.b.map(unpackBall) });
     if (this.snaps.length > 60) this.snaps.shift();
     for (const e of m.ev) if (e.id !== this.you) this.remoteEvents.push(e);
+    this.crown = m.c && m.c.length === 4 ? { holder: m.c[0], x: m.c[1] / 100, y: m.c[2] / 100, z: m.c[3] / 100 } : null;
   }
 
   // ───────── Per-tick access ─────────

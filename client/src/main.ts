@@ -29,7 +29,7 @@ document.getElementById("loading")?.remove();
 const container = document.getElementById("game")!;
 
 if (bench || params.has("solo")) {
-  new Game(container, { quality, bench });
+  new Game(container, { quality, bench, round: params.get("round") ?? undefined });
 } else {
   const choice = await showMenu(params.get("room") ?? "", async (how, name) => NetClient.connect(how, { name }, lag));
   if (choice === "solo") {

@@ -1,17 +1,21 @@
-// M1 feel sandbox: fixed-step simulation + interpolated rendering + input + tuning.
+// The game client: fixed-step simulation, interpolated rendering, input, networking and the Party show.
 
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
-import { SANDBOX } from "../../shared/level";
+import { SANDBOX, type LevelDef } from "../../shared/level";
+import type { Vec3 } from "../../shared/math";
 import { SEND_RATE, netStateOf, packNet } from "../../shared/protocol";
-import { DT, Sim, TICK_RATE, WOBBLER_CENTER, type InputFrame, type NetMsg, type SimEvent, type Wobbler } from "../../shared/sim";
+import { roundById } from "../../shared/rounds";
+import { DT, NO_INPUT, Sim, TICK_RATE, WOBBLER_CENTER, type InputFrame, type NetMsg, type SimEvent, type Wobbler } from "../../shared/sim";
+import { makeCrown } from "./render/crown";
 import type { NetClient } from "./net";
 import { CameraRig } from "./camera";
 import { Input } from "./input";
 import { Fx } from "./render/fx";
-import { LevelView } from "./render/level";
+import { LevelView, TEAM_COLORS } from "./render/level";
 import { PLAYER_COLORS, WobblerView } from "./render/wobbler";
 import { Hud } from "./ui/hud";
+import { ShowUi } from "./ui/show";
 import { createTuningPanel, type DebugOptions } from "./ui/tuning-panel";
 
 export type Quality = "auto" | "low" | "medium" | "high";
@@ -22,7 +26,12 @@ export interface GameOptions {
   bench: boolean;
   /** Online: connected Party room. Offline sandbox when absent. */
   net?: NetClient;
+  /** Offline only: practise one round (?solo&round=frostbite-run). */
+  round?: string;
 }
+
+/** Hunt crown holders run a little slower (DESIGN.md §5). */
+const CROWN_SPEED = 0.85;
 
 /**
  * Render presets. Fill rate is the bottleneck on integrated GPUs, so the big levers are
@@ -43,7 +52,7 @@ interface Prev {
 }
 
 export class Game {
-  readonly sim: Sim;
+  sim: Sim;
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly rig: CameraRig;
@@ -69,6 +78,14 @@ export class Game {
   private net: NetClient | null;
   private pendingEvents: SimEvent[] = [];
   private pendingOut: NetMsg[] = [];
+  private levelDef: LevelDef = SANDBOX;
+  private roundKey = "lobby";
+  private appliedExtra = 0;
+  private showUi = new ShowUi();
+  private huntCrown = makeCrown(1.35);
+  private bountyCrown = makeCrown(0.75);
+  /** Who the camera follows while we are out of the round. */
+  private spectating: number | null = null;
 
   constructor(
     private container: HTMLElement,
@@ -103,10 +120,15 @@ export class Game {
     this.rig = new CameraRig(this.sim.world);
     this.input = new Input(this.renderer.domElement);
     this.input.onKey = (code) => {
-      if (code === "KeyR") this.sim.forceRespawn(this.player);
+      if (code === "KeyR" && !this.isSpectating() && this.sim.level.failRule !== "out") this.sim.forceRespawn(this.player);
+      if (code === "KeyF") this.net?.gremlin();
+      if ((code === "Enter" || code === "NumpadEnter") && this.net?.show?.phase === "lobby" && this.isHost()) this.net?.startShow();
     };
     this.fx = new Fx(this.scene);
     this.level = new LevelView(SANDBOX, this.scene);
+    this.huntCrown.visible = this.bountyCrown.visible = false;
+    this.scene.add(this.huntCrown, this.bountyCrown);
+    this.showUi.onStart = () => this.net?.startShow();
 
     this.scene.add(new THREE.HemisphereLight(0xfff4fb, 0xb9a0d0, 1.15));
     this.sun.position.set(12, 30, 10);
@@ -122,6 +144,13 @@ export class Game {
     for (const w of this.sim.wobblers) this.addView(w);
     this.snapshotPrev();
     this.updateNames();
+    if (!this.net && opts.round) {
+      const def = roundById(opts.round);
+      if (def) {
+        const lvl = def.build(1, 1);
+        this.loadLevel(lvl, 0, (lvl.spawns ?? [lvl.spawn])[0], true);
+      }
+    }
 
     createTuningPanel(this.debug, { respawn: () => this.sim.forceRespawn(this.player) });
     document.addEventListener("pointerlockchange", () => this.hud.setLocked(this.input.pointerLocked || opts.bench));
@@ -137,6 +166,138 @@ export class Game {
   disconnected() {
     document.exitPointerLock?.();
     this.hud.showDisconnected();
+  }
+
+  // ───────────────────────── Party show ─────────────────────────
+
+  private isHost() {
+    return !!this.net?.roster.find((r) => r.id === this.player.id)?.host;
+  }
+
+  /** Out of the round for good (fell in survival, a Gremlin, joined mid-round). */
+  private isSpectating() {
+    return this.player.state === "out" && this.player.outUntil === Infinity;
+  }
+
+  /** Switch to another level: new Sim (same clock), new scene, our Wobbler at spawn. */
+  private loadLevel(level: LevelDef, epochTick: number, spawn: Vec3, playing: boolean) {
+    const tick = this.sim.tick;
+    const { id, color } = this.player;
+    this.level.dispose();
+    for (const [wid, v] of [...this.views]) {
+      if (wid === id) continue;
+      this.scene.remove(v.root, v.blob);
+      this.views.delete(wid);
+    }
+    const old = this.sim;
+    this.sim = new Sim(level, 1, this.net ? "client" : "offline");
+    old.world.free();
+    this.sim.jumpTo(tick);
+    this.sim.epoch = epochTick * DT;
+    this.player = this.sim.addWobbler(spawn, "player", color, id);
+    if (!playing) this.sim.retire(this.player);
+    this.rig.world = this.sim.world;
+    this.rig.yaw = Math.PI;
+    this.level = new LevelView(level, this.scene);
+    this.levelDef = level;
+    this.appliedExtra = 0;
+    this.spectating = null;
+    this.pendingOut = [];
+    this.prev.clear();
+    this.snapshotPrev();
+    this.updateNames();
+  }
+
+  /** Follow the server show: load the round level when it changes, add Gremlin hazards. */
+  private syncShow() {
+    const m = this.net?.show;
+    if (!m) return;
+    const key = m.phase === "lobby" || !m.round ? "lobby" : m.round.id + ":" + m.round.seed;
+    if (key !== this.roundKey) {
+      this.roundKey = key;
+      if (key === "lobby") {
+        const i = Math.max(0, this.net!.roster.findIndex((r) => r.id === this.player.id));
+        const a = (i / 8) * Math.PI * 2;
+        this.loadLevel(SANDBOX, 0, { x: Math.cos(a) * 2.4, y: 1, z: Math.sin(a) * 2.4 }, true);
+      } else {
+        const def = roundById(m.round!.id);
+        if (def) {
+          const level = def.build(m.round!.seed, m.participants.length);
+          const idx = m.spawns[this.player.id];
+          const list = level.spawns ?? [level.spawn];
+          const playing = idx != null;
+          // Spectators park far below the level: hidden and out of the way.
+          const spawn = playing ? list[idx % list.length] : { x: level.spawn.x, y: level.killY - 30, z: level.spawn.z };
+          this.loadLevel(level, m.round!.epochTick, spawn, playing);
+          this.sim.setRule(m.round!.rule);
+        }
+      }
+    }
+    while (this.appliedExtra < m.extra.length) {
+      const h = m.extra[this.appliedExtra++];
+      this.sim.addHazard(h);
+      this.level.addHazard(h);
+    }
+    const showing = m.phase !== "lobby";
+    this.hud.setRoom(this.net!.code, this.net!.roster, this.player.id, showing ? m.stars : null, showing ? m.leader : null);
+  }
+
+  /** Pick someone still in the round to watch; next cycles to the following one. */
+  private updateSpectate(next: boolean) {
+    if (!this.isSpectating()) {
+      this.spectating = null;
+      return;
+    }
+    const m = this.net?.show;
+    const candidates = this.sim.wobblers
+      .filter((w) => w !== this.player && w.state !== "out" && (!m || m.participants.includes(w.id)))
+      .map((w) => w.id)
+      .sort((a, b) => a - b);
+    if (!candidates.length) {
+      this.spectating = null;
+      return;
+    }
+    const i = this.spectating == null ? -1 : candidates.indexOf(this.spectating);
+    if (i < 0) this.spectating = candidates[0];
+    else if (next) this.spectating = candidates[(i + 1) % candidates.length];
+  }
+
+  /** Hunt crown, the Final summit crown and the Bounty Crown on the star leader. */
+  private updateCrowns(t: number) {
+    const m = this.net?.show;
+    const round = m?.round ? roundById(m.round.id) : undefined;
+    const active = !!m && m.phase !== "lobby" && m.phase !== "podium";
+    const c = this.net?.crown;
+    let holder: number | null = null;
+    const hunt = this.huntCrown;
+    hunt.visible = false;
+    if (active && round?.category === "hunt" && c) {
+      hunt.visible = true;
+      holder = c.holder || null;
+      const hv = holder != null ? this.views.get(holder) : undefined;
+      if (hv && hv.root.visible) {
+        hunt.position.copy(hv.root.position).add(new THREE.Vector3(0, 0.98, 0));
+        hunt.rotation.set(0, t * 1.5, 0);
+      } else {
+        const goal = new THREE.Vector3(c.x, c.y + Math.sin(t * 3) * 0.08, c.z);
+        if (hunt.position.distanceTo(goal) > 3) hunt.position.copy(goal);
+        else hunt.position.lerp(goal, 0.3);
+        hunt.rotation.set(0.2, t * 2.5, 0);
+      }
+    } else if (active && round?.category === "final" && this.levelDef.crown) {
+      hunt.visible = true;
+      const p = this.levelDef.crown;
+      hunt.position.set(p.x, p.y + 0.2 + Math.sin(t * 2) * 0.12, p.z);
+      hunt.rotation.set(0, t * 1.2, 0);
+    }
+    this.player.speedMul = active && round?.category === "hunt" && holder === this.player.id ? CROWN_SPEED : 1;
+    const leader = active && !m!.round?.final ? m!.leader : null;
+    const lv = leader != null && leader !== holder ? this.views.get(leader) : undefined;
+    this.bountyCrown.visible = !!lv && lv.root.visible;
+    if (lv) {
+      this.bountyCrown.position.copy(lv.root.position).add(new THREE.Vector3(0, 0.95, 0));
+      this.bountyCrown.rotation.set(0.12, t * 1.2, 0);
+    }
   }
 
   private addView(w: Wobbler) {
@@ -170,13 +331,17 @@ export class Game {
     // right = forward × up
     const rx = -f.z;
     const rz = f.x;
-    const frame: InputFrame = {
+    const phase = this.net?.show?.phase;
+    const frozen = phase === "intro" || phase === "countdown";
+    let frame: InputFrame = {
       mx: f.x * i.moveY + rx * i.moveX,
       mz: f.z * i.moveY + rz * i.moveX,
       jump: i.jump,
       dive: i.dive,
       grab: i.grab,
     };
+    if (frozen) frame = NO_INPUT;
+    this.updateSpectate(i.jump);
     this.snapshotPrev();
     if (this.net) this.syncRemotes();
     this.sim.step(new Map([[this.player.id, frame]]));
@@ -242,11 +407,15 @@ export class Game {
 
   private updateNames() {
     if (!this.net) return;
+    const teams = this.net.show?.phase !== "lobby" ? this.net.show?.teams : null;
     for (const [id, view] of this.views) {
       const r = this.net.roster.find((p) => p.id === id);
-      view.setName(r && id !== this.player.id ? r.name : null);
+      const team = teams?.[id];
+      view.setName(r && id !== this.player.id ? r.name : null, team != null ? TEAM_COLORS[team] : undefined);
     }
-    this.hud.setRoom(this.net.code, this.net.roster, this.player.id);
+    const m = this.net.show;
+    const showing = !!m && m.phase !== "lobby";
+    this.hud.setRoom(this.net.code, this.net.roster, this.player.id, showing ? m.stars : null, showing ? m.leader : null);
   }
 
   private onEvent(e: SimEvent) {
@@ -327,6 +496,7 @@ export class Game {
     this.rig.addLook(look.x, look.y);
     if (this.opts.bench) this.rig.yaw += realDt * 0.25;
 
+    this.syncShow();
     let alpha: number;
     if (this.net) {
       // Online: follow the server clock so hazards line up for everyone.
@@ -393,11 +563,22 @@ export class Game {
       obj.quaternion.slerpQuaternions(prev.q, new THREE.Quaternion(r.x, r.y, r.z, r.w), alpha);
     });
 
-    this.level.update(this.renderTime);
+    this.level.update(this.sim.hazardTime(this.renderTime));
+    this.updateCrowns(this.renderTime);
     this.fx.update(dt);
+    if (this.net) {
+      this.showUi.update(this.net.show, {
+        me: this.player.id,
+        roster: this.net.roster,
+        tick: this.net.serverTime() / DT,
+        host: this.isHost(),
+        spectating: this.isSpectating() ? this.spectating : null,
+      });
+    }
 
-    // Camera follows the player (or orbits the hub during the bench)
-    const pp = this.views.get(this.player.id)!.root.position;
+    // Camera follows the player, whoever we spectate, or orbits the hub during the bench.
+    const watched = this.spectating != null ? this.views.get(this.spectating) : undefined;
+    const pp = (watched ?? this.views.get(this.player.id)!).root.position;
     const follow = this.opts.bench ? new THREE.Vector3(0, 0, 0) : new THREE.Vector3(pp.x, pp.y + WOBBLER_CENTER, pp.z);
     this.rig.distance = this.opts.bench ? 16 : 7;
     this.rig.update(follow, realDt, this.debug.reduceMotion);

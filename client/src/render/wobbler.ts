@@ -165,10 +165,11 @@ export class WobblerView {
   private nameplate: THREE.Sprite | null = null;
   private nameText: string | null = null;
 
-  /** Floating name tag above the head (null hides it). */
-  setName(name: string | null) {
-    if (name === this.nameText) return;
-    this.nameText = name;
+  /** Floating name tag above the head (null hides it). `bg` tints the tag (team colour). */
+  setName(name: string | null, bg?: number) {
+    const key = name == null ? null : name + "|" + (bg ?? "");
+    if (key === this.nameText) return;
+    this.nameText = key;
     if (this.nameplate) {
       this.root.remove(this.nameplate);
       (this.nameplate.material as THREE.SpriteMaterial).map?.dispose();
@@ -184,7 +185,7 @@ export class WobblerView {
     c.width = w;
     c.height = 72;
     g.font = font;
-    g.fillStyle = "rgba(58, 36, 80, 0.78)";
+    g.fillStyle = bg == null ? "rgba(58, 36, 80, 0.78)" : "#" + bg.toString(16).padStart(6, "0");
     g.beginPath();
     g.roundRect(0, 6, w, 60, 30);
     g.fill();

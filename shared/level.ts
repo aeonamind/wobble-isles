@@ -23,16 +23,43 @@ export interface SolidDef {
   color?: number;
 }
 
+export type Island = "frost" | "candy" | "toy" | "splash" | "jungle" | "neon";
+
+/** Axis-aligned box: centre + full extents. */
+export interface Zone {
+  pos: Vec3;
+  size: Vec3;
+}
+
+export const inZone = (z: Zone, p: Vec3) =>
+  Math.abs(p.x - z.pos.x) <= z.size.x / 2 && Math.abs(p.y - z.pos.y) <= z.size.y / 2 && Math.abs(p.z - z.pos.z) <= z.size.z / 2;
+
 export interface LevelDef {
   id: string;
   name: string;
-  island: "frost" | "candy" | "toy" | "splash" | "jungle" | "neon";
+  island: Island;
   spawn: Vec3;
   solids: SolidDef[];
   hazards: HazardDef[];
-  balls: { pos: Vec3; radius: number }[];
+  balls: { pos: Vec3; radius: number; bouncy?: boolean }[];
   dummies: { pos: Vec3; behaviour: "idle" | "pace" }[];
   killY: number;
+  /** "respawn" (default): back to the last checkpoint. "out": falling eliminates you from the round. */
+  failRule?: "respawn" | "out";
+  /** Start positions, one per player (wraps if there are more players). */
+  spawns?: Vec3[];
+  /** Race: crossing this zone finishes. */
+  finish?: Zone;
+  /** Final: touching this zone wins. */
+  summit?: Zone;
+  /** Hunt: where the crown appears. */
+  crown?: Vec3;
+  /** Team: ball entering a team's zone scores for the other team. */
+  goals?: { team: number; zone: Zone }[];
+  /** Visual water surface height (survival on water). */
+  water?: number;
+  /** Small text shown during the round, e.g. "Reach the finish!". */
+  objective?: string;
 }
 
 /** M1 feel sandbox: one hub with a zone per mechanic. */

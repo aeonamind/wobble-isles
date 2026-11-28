@@ -5,6 +5,8 @@ one version for the whole game (web client, desktop app and server). How to cut 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-28 · M4 Polish, first public release
+
 ### Added
 - Three character silhouettes (Bean, Gumdrop, Drop) and 8 colours, picked in the menu; Wobblers are now 1.25 m tall.
 - Procedural music (lobby, rounds, Final) and sound effects, synthesised live with Web Audio.
@@ -43,7 +45,8 @@ one version for the whole game (web client, desktop app and server). How to cut 
 - Run, jump, dive, grab and throw; ragdolls; ice, bouncers, conveyors and sticky floors; gamepad support.
 - Toon renderer with automatic graphics quality, and an in-game tuning panel.
 
-[Unreleased]: https://github.com/aeonamind/wobble-isles/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/aeonamind/wobble-isles/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/aeonamind/wobble-isles/compare/v0.3.0...v0.5.0
 [0.3.0]: https://github.com/aeonamind/wobble-isles/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/aeonamind/wobble-isles/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/aeonamind/wobble-isles/releases/tag/v0.1.0

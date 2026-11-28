@@ -29,11 +29,15 @@ The web game always matches its server, because the server serves the page. The 
 
 ## Cutting a release
 
+`main` only changes through PRs, so the release commit does too:
+
 ```bash
-git checkout main && git pull
+git fetch && git checkout -b release/v0.5.0 origin/main
 # CHANGELOG.md: make sure [Unreleased] lists everything
-npm version minor          # or patch / major / 0.5.0 → commit "Release v0.5.0" + tag v0.5.0
-git push --follow-tags
+npm version minor          # or patch / major / 0.5.0 → commit "Release v0.5.0" + local tag v0.5.0
+git push -u origin release/v0.5.0      # branch only, not the tag yet
+# open the PR and merge it with a merge commit (not squash, which would leave the tagged commit off main)
+git push origin v0.5.0                  # now publish
 ```
 
 The tag starts `.github/workflows/release.yml`:

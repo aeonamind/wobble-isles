@@ -119,6 +119,8 @@ export interface SnapMsg {
   b: PackedBall[];
   /** Visual events from other players and server NPCs. Receivers skip their own. */
   ev: SimEvent[];
+  /** Hunt rounds: [holder id or 0, x, y, z] in cm. */
+  c?: number[];
 }
 
 export interface WelcomeMsg {

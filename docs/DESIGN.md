@@ -150,7 +150,7 @@ The genre core (run, jump, dive, grab) is shared with every obstacle-course part
 |---|---|---|---|
 | **Head Bounce** | Prototype in M1 sandbox | Every Wobbler's head is a trampoline. Land on someone and you spring up 2.0 m (3.2 m if you press jump as you land) and slide off the dome; they are squashed flat for 0.7 s and move at 45% speed. Nobody can stand on a head. | Instantly readable in a clip. Works both ways: boost a friend over a gap, or stomp past the leader. Creates "piggyback" shortcuts in race rounds. |
 | **Jelly Clump** | Design, prototype in M3 | Two Wobblers colliding hard (combined speed over about 8 m/s, or tackle into tackle) stick together for 1.5 s and roll as one blob. Either can mash to split early. | Chaos pile-ups and "if I go down, you're coming with me" moments. Makes grabs and tackles near edges a real gamble. |
-| **House Rules** | Design, M3 with Party mode | Before each Party round, the player in last place spins or picks one modifier for everybody: low gravity, everything is ice, big heads (bigger bounce targets), reversed controls for the leader only, sticky feet, double-speed hazards. | Every show plays differently, and losing gives you power. Good for streams and replay value. |
+| **House Rules** | Shipped in M3 (4 rules); more in M4 | From round 2, before each Party round (not the Final), the player in last place spins one modifier for everybody. M3 set: **Moon Bounce** (half gravity), **Ice Age** (every floor is ice), **Turbo Traps** (hazards 35% faster), **Caramel Floors** (sticky feet). Rules that make no sense for a level are skipped (no Ice Age on water, no Turbo Traps without hazards). Later: big heads, reversed controls for the leader only. | Every show plays differently, and losing gives you power. Good for streams and replay value. |
 
 Rules for new signature mechanics: readable in under 3 seconds of footage; usable to help **or** to troll; never removes control for more than about 1.5 s.
 
@@ -328,7 +328,7 @@ Each milestone is one or more PRs, merged only after a real playtest.
 | **M0 Design** | This document, ART.md, ASSETS.md, repo skeleton | Owner approves |
 | **M1 Feel** | Single-player sandbox: controller, jump, dive, grab and throw (with dummies), ragdoll, surfaces, 3 hazard types, camera, gamepad, tuning panel. Mobile performance spike (see §8) | "Fun to mess around in for 10 minutes" from 3 testers |
 | **M2 Netcode** | Party rooms with codes and invite links, owner-simulated movement, server-refereed interactions (grab, tackle, stomp, throw) across the network, latency simulator (`?lag=`), load-test bots | 8 players smooth at 150 ms simulated latency. Measured CPU and bandwidth for 32 bots |
-| **M3 Party Mode** | Lobby, Show Director, stars and catch-up, Gremlins, the 6 ⭐ rounds | A full 6-player show playtested, with feedback logged |
+| **M3 Party Mode** | Lobby, Show Director, stars and catch-up (Bounty Crown, Double Down, House Rules), Gremlins, the 6 ⭐ rounds | A full 6-player show playtested, with feedback logged. Automated: full show in tests, 3- and 4-browser online runs |
 | **M4 Polish** | Audio and music, UI, Fail Cam, awards, settings, touch, PWA, performance pass | Performance budgets met. A playtest show with no blocker bugs |
 | **M5 Launch** | Singapore deploy, CI/CD, monitoring | Public link for friends |
 | **M6+ Grow** | Show mode, matchmaking, more rounds, level editor, mobile | Driven by real usage |
@@ -348,3 +348,11 @@ After M1, M3 and every new round:
 3. Character artist: built in-house versus commissioning a hero character. Decide at M4.
 4. Licensing of the codebase (private versus open source).
 5. Native app client: keep the web client wrapped (default) or switch engine, decided by the M1 mobile performance spike.
+
+## Appendix: M3 implementation notes
+
+- **Rounds are pure builders** `(seed, players) → LevelDef` in `shared/rounds.ts`; server and clients build the same level from the seed in the `show` message.
+- **Each round runs on a fresh Sim** on the server and every client, on the shared server clock. Hazards are functions of `hazardTime = max(0, time − epoch) × ruleSpeed`, so they hold still through the intro and countdown and line up for everyone.
+- **New hazard kinds:** `slider` (sliding block), `floe` (floating platform that carries you, shakes for 2 s, then sinks at `sinkAt`), `roller` (snowball on a path, periodic or one-shot for Gremlin avalanches).
+- **Referees run on the server** from the states players upload: finish zones (race), elimination order with `failRule: "out"` (survival), crown holder with pickup/drop and a 1 s re-grab cooldown (hunt), ball-in-goal (team), summit zone (final). Results use competition ranking; ties share the better rank.
+- **Spectating:** players who are out (or Gremlins, or who joined mid-round) are parked below the level and the camera follows someone still playing (Space to switch).

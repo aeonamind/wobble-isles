@@ -1,6 +1,8 @@
 import { Room, type Client } from "colyseus";
 import { pack } from "msgpackr";
-import { SANDBOX } from "../shared/level";
+import { SANDBOX, type LevelDef } from "../shared/level";
+import type { Vec3 } from "../shared/math";
+import type { ShowMsg } from "../shared/show";
 import {
   MAX_INTERACT_DIST,
   MAX_PLAYERS,
@@ -20,8 +22,9 @@ import {
   type StateMsg,
   type WelcomeMsg,
 } from "../shared/protocol";
-import { Sim, TICK_RATE, type NetMsg, type SimEvent, type Wobbler } from "../shared/sim";
+import { DT, Sim, TICK_RATE, type NetMsg, type SimEvent, type Wobbler } from "../shared/sim";
 import { generateRoomCode, releaseRoomCode } from "./roomCode";
+import { ShowRunner, type ShowHost } from "./ShowRunner";
 
 export interface JoinOptions {
   name?: string;
@@ -68,7 +71,7 @@ const SPAWN_RING = 2.4;
  * runs the shared level (hazards, balls, NPC dummies), referees interactions between
  * Wobblers and broadcasts snapshots. See DESIGN.md §8.
  */
-export class PartyRoom extends Room {
+export class PartyRoom extends Room implements ShowHost {
   maxClients = MAX_PLAYERS;
   sim!: Sim;
   readonly stats = new RoomStats();
@@ -76,12 +79,16 @@ export class PartyRoom extends Room {
   private byWobbler = new Map<number, Player>();
   private pendingEvents: SimEvent[] = [];
   private hostId: string | null = null;
+  /** Player Wobbler ids are unique for the life of the room (NPC dummies use small ids). */
+  private nextPlayerId = 100;
   /** Measure snapshot sizes (msgpack) for stats; cheap enough to keep on. */
   measure = true;
+  runner!: ShowRunner;
 
   onCreate() {
     this.roomId = generateRoomCode();
     this.sim = new Sim(SANDBOX, (Math.random() * 1e9) | 0, "server");
+    this.runner = new ShowRunner(this, Math.random, process.env.WOBBLE_PLAN?.split(","));
 
     this.onMessage("s", (client: Client, msg: StateMsg) => this.onState(client, msg));
     this.onMessage("ping", (client: Client, msg: PingMsg) => {
@@ -92,6 +99,14 @@ export class PartyRoom extends Room {
       if (!p) return;
       p.name = cleanName(msg?.name, p.name);
       this.broadcastRoster();
+    });
+
+    this.onMessage("start", (client: Client) => {
+      if (client.sessionId === this.hostId) this.runner.start();
+    });
+    this.onMessage("gremlin", (client: Client) => {
+      const p = this.players.get(client.sessionId);
+      if (p) this.runner.gremlin(p.wobbler.id);
     });
 
     this.setSimulationInterval(() => this.tick(), 1000 / TICK_RATE);
@@ -106,6 +121,7 @@ export class PartyRoom extends Room {
     this.sim.events = [];
     for (const m of this.sim.outbox) this.route(m, null);
     this.sim.outbox = [];
+    this.runner.tick();
 
     if (this.sim.tick % Math.round(TICK_RATE / SEND_RATE) === 0) this.broadcastSnapshot();
     const ms = performance.now() - start;
@@ -120,6 +136,7 @@ export class PartyRoom extends Room {
       w: this.sim.wobblers.map((w) => packNet(w.id, w.net ?? netStateOf(w, this.sim.time))),
       b: this.sim.balls.map((b) => packBall(b.translation(), b.rotation())),
       ev: this.pendingEvents,
+      c: this.runner.crownPacked(),
     };
     this.pendingEvents = [];
     this.broadcast("snap", snap);
@@ -160,6 +177,7 @@ export class PartyRoom extends Room {
       }
     }
     this.stats.routed++;
+    this.runner.onInteraction(m);
     const owner = this.byWobbler.get(m.target);
     if (owner) {
       owner.client.send("i", m);
@@ -178,7 +196,7 @@ export class PartyRoom extends Room {
     const a = (slot / 8) * Math.PI * 2;
     const ring = SPAWN_RING * (1 + Math.floor(slot / 8) * 0.6);
     const spawn = { x: SANDBOX.spawn.x + Math.cos(a) * ring, y: SANDBOX.spawn.y, z: SANDBOX.spawn.z + Math.sin(a) * ring };
-    const wobbler = this.sim.addWobbler(spawn, "remote", color);
+    const wobbler = this.sim.addWobbler(spawn, "remote", color, this.nextPlayerId++);
     wobbler.net = netStateOf(wobbler, this.sim.time);
     const name = cleanName(options.name, `Wobbler ${slot + 1}`);
     const player: Player = { client, wobbler, name, color, joinedAt: Date.now() };
@@ -187,6 +205,7 @@ export class PartyRoom extends Room {
     this.hostId ??= client.sessionId;
     client.send("welcome", { code: this.roomId, you: wobbler.id, color, spawn, tick: this.sim.tick } satisfies WelcomeMsg);
     this.broadcastRoster();
+    client.send("show", this.runner.msg());
   }
 
   onLeave(client: Client) {
@@ -215,6 +234,35 @@ export class PartyRoom extends Room {
       players: [...this.players.entries()].map(([sid, p]) => ({ id: p.wobbler.id, name: p.name, color: p.color, host: sid === this.hostId })),
     };
     this.broadcast("roster", msg);
+  }
+
+  // ───────── ShowHost ─────────
+
+  playerIds() {
+    return [...this.players.values()].map((p) => p.wobbler.id);
+  }
+
+  nameOf(id: number) {
+    return this.byWobbler.get(id)?.name ?? "Someone";
+  }
+
+  broadcastShow(msg: ShowMsg) {
+    this.broadcast("show", msg);
+  }
+
+  loadLevel(level: LevelDef, epochTick: number, spawns: Map<number, Vec3>) {
+    const tick = this.sim.tick;
+    const old = this.sim;
+    this.sim = new Sim(level, (Math.random() * 1e9) | 0, "server");
+    old.world.free();
+    this.sim.jumpTo(tick);
+    this.sim.epoch = epochTick * DT;
+    for (const p of this.players.values()) {
+      const spawn = spawns.get(p.wobbler.id) ?? level.spawn;
+      const w = this.sim.addWobbler(spawn, "remote", p.color, p.wobbler.id);
+      w.net = netStateOf(w, this.sim.time);
+      p.wobbler = w;
+    }
   }
 
   /** For tests. */

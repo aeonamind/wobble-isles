@@ -8,7 +8,7 @@
 // Fixed time step, no rendering, no wall-clock time, no Math.random (seeded RNG only).
 
 import RAPIER from "@dimforge/rapier3d-compat";
-import { hazardPose, hazardShapes, type HazardDef } from "./hazards";
+import { hazardPose, hazardShapes, isPlatform, type HazardDef } from "./hazards";
 import type { LevelDef, SolidDef, Surface } from "./level";
 import { angleDelta, clamp, conj, lenXZ, moveTowardXZ, quatFromAxisAngle, quatMul, rng, rotate, v3, type Quat, type Vec3 } from "./math";
 import { TUNING, jumpVelocity } from "./tuning";
@@ -109,6 +109,10 @@ export interface Wobbler {
   hazardCooldown: Map<number, number>;
   aiTime: number;
   home: Vec3;
+  /** Velocity of the moving platform we stand on (floes), applied on top of our own. */
+  platformVel: Vec3 | null;
+  /** Run speed multiplier set by round rules (e.g. carrying the crown). */
+  speedMul: number;
   /** Remote Wobblers only: latest network state. */
   net: NetState | null;
 }
@@ -149,9 +153,28 @@ export class Sim {
   /** Interactions with remote Wobblers produced this tick (see header). Cleared by the owner after sending. */
   outbox: NetMsg[] = [];
   readonly role: SimRole;
+  /** Round start time (s). Hazards are evaluated at `time - epoch` and hold still before it. */
+  epoch = 0;
+
+  /** Seconds into the round for hazards (0 until the round starts). */
+  hazardTime(t = this.time) {
+    return Math.max(0, t - this.epoch) * this.rules.hazardSpeed;
+  }
+
+  /** House Rule modifiers (Party mode). */
+  rules = { gravity: 1, hazardSpeed: 1, floor: null as "ice" | "sticky" | null };
+
+  setRule(id: string | null) {
+    this.rules = {
+      gravity: id === "moon-bounce" ? 0.5 : 1,
+      hazardSpeed: id === "turbo-traps" ? 1.35 : 1,
+      floor: id === "ice-age" ? "ice" : id === "caramel-floors" ? "sticky" : null,
+    };
+  }
 
   private solidByCollider = new Map<number, SolidDef>();
   private wobblerByCollider = new Map<number, Wobbler>();
+  private hazardByCollider = new Map<number, HazardRuntime>();
   private ballColliders = new Set<number>();
   private nextId = 1;
   private random: () => number;
@@ -174,16 +197,7 @@ export class Sim {
       this.solidByCollider.set(c.handle, s);
     }
 
-    level.hazards.forEach((def) => {
-      const pose = hazardPose(def, 0);
-      const body = this.world.createRigidBody(
-        RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(pose.pos.x, pose.pos.y, pose.pos.z).setRotation(pose.rot),
-      );
-      const colliders = hazardShapes(def).map((s) =>
-        this.world.createCollider(RAPIER.ColliderDesc.cuboid(s.half.x, s.half.y, s.half.z).setTranslation(s.offset.x, s.offset.y, s.offset.z), body),
-      );
-      this.hazards.push({ def, body, colliders });
-    });
+    for (const def of level.hazards) this.addHazard(def);
 
     for (const b of level.balls) {
       // On clients balls are proxies that follow the server.
@@ -191,13 +205,33 @@ export class Sim {
       const body = this.world.createRigidBody(
         desc.setTranslation(b.pos.x, b.pos.y, b.pos.z).setLinearDamping(0.3).setAngularDamping(0.4).setCcdEnabled(role !== "client"),
       );
-      const c = this.world.createCollider(RAPIER.ColliderDesc.ball(b.radius).setRestitution(0.7).setDensity(0.25).setFriction(0.6), body);
+      const c = this.world.createCollider(RAPIER.ColliderDesc.ball(b.radius).setRestitution(b.bouncy ? 0.9 : 0.7).setDensity(b.bouncy ? 0.12 : 0.25).setFriction(0.6), body);
       this.ballColliders.add(c.handle);
       this.balls.push(body);
     }
 
     // Dummies are server-owned NPCs; clients see them as remotes.
     if (role !== "client") for (const d of level.dummies) this.addWobbler(d.pos, d.behaviour);
+  }
+
+  /** Add a scripted hazard (level load, or mid-round, e.g. a Gremlin avalanche). */
+  addHazard(def: HazardDef) {
+    const pose = hazardPose(def, this.hazardTime());
+    const body = this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(pose.pos.x, pose.pos.y, pose.pos.z).setRotation(pose.rot),
+    );
+    const colliders = hazardShapes(def).map((s) =>
+      this.world.createCollider(
+        (s.radius ? RAPIER.ColliderDesc.ball(s.radius) : RAPIER.ColliderDesc.cuboid(s.half.x, s.half.y, s.half.z))
+          .setTranslation(s.offset.x, s.offset.y, s.offset.z)
+          .setFriction(def.kind === "floe" ? 0.05 : 0.5),
+        body,
+      ),
+    );
+    const h = { def, body, colliders };
+    this.hazards.push(h);
+    for (const c of colliders) this.hazardByCollider.set(c.handle, h);
+    return h;
   }
 
   addWobbler(pos: Vec3, behaviour: Behaviour, color = this.nextId % 8, id = this.nextId): Wobbler {
@@ -245,6 +279,8 @@ export class Sim {
       hazardCooldown: new Map(),
       aiTime: this.random() * 10,
       home: { ...pos },
+      platformVel: null,
+      speedMul: 1,
       net: null,
     };
     this.wobblers.push(w);
@@ -297,7 +333,7 @@ export class Sim {
     this.time = this.tick * DT;
 
     for (const h of this.hazards) {
-      const p = hazardPose(h.def, this.time);
+      const p = hazardPose(h.def, this.hazardTime());
       h.body.setNextKinematicTranslation(p.pos);
       h.body.setNextKinematicRotation(p.rot);
     }
@@ -446,6 +482,7 @@ export class Sim {
       if (surface === "sticky") speed *= T.surface.stickySpeedMul;
       if (w.holding != null) speed *= T.grab.holdSlowdown;
       if (t < w.squashedUntil) speed *= T.stomp.squashSlow;
+      speed *= w.speedMul;
       let accel: number;
       if (w.grounded) {
         accel = hasInput ? T.move.groundAccel : T.move.groundDecel;
@@ -501,7 +538,7 @@ export class Sim {
     }
 
     // ── Gravity
-    const g = T.jump.gravity * (w.vel.y < 0 ? T.jump.fallGravityMul : 1);
+    const g = T.jump.gravity * this.rules.gravity * (w.vel.y < 0 ? T.jump.fallGravityMul : 1);
     w.vel.y = Math.max(-T.jump.maxFallSpeed, w.vel.y - g * DT);
 
     // ── Grab / hold
@@ -516,10 +553,11 @@ export class Sim {
 
     // ── Move with the character controller
     const belt = w.grounded && w.belt ? w.belt : null;
+    const plat = w.grounded ? w.platformVel : null;
     const desired = {
-      x: (w.vel.x + (belt?.x ?? 0)) * DT,
-      y: w.vel.y * DT,
-      z: (w.vel.z + (belt?.z ?? 0)) * DT,
+      x: (w.vel.x + (belt?.x ?? 0) + (plat?.x ?? 0)) * DT,
+      y: (w.vel.y + Math.min(0, plat?.y ?? 0)) * DT,
+      z: (w.vel.z + (belt?.z ?? 0) + (plat?.z ?? 0)) * DT,
     };
     if (w.vel.y > 0) w.controller.disableSnapToGround();
     else w.controller.enableSnapToGround(0.25);
@@ -591,7 +629,17 @@ export class Sim {
     const ray = new RAPIER.Ray({ x: at.x, y: at.y, z: at.z }, { x: 0, y: -1, z: 0 });
     const hit = this.world.castRay(ray, WOBBLER_CENTER + 0.35, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, undefined, w.collider);
     const solid = hit ? this.solidByCollider.get(hit.collider.handle) : undefined;
+    const platform = hit ? this.hazardByCollider.get(hit.collider.handle) : undefined;
+    w.platformVel = null;
+    if (hit && platform && isPlatform(platform.def)) {
+      const p = { x: at.x, y: at.y - hit.timeOfImpact, z: at.z };
+      w.platformVel = pointVelocity(platform.def, p, this.hazardTime(this.time - DT), this.hazardTime());
+      w.groundSurface = "ice"; // floes are slippery
+      w.belt = null;
+      return;
+    }
     w.groundSurface = solid?.surface ?? "normal";
+    if (this.rules.floor && w.groundSurface === "normal") w.groundSurface = this.rules.floor;
     w.belt = solid?.surface === "conveyor" ? (solid.belt ?? null) : null;
     if (solid?.respawn) w.respawnPoint = solid.respawn;
   }
@@ -632,11 +680,12 @@ export class Sim {
   private checkHazards(w: Wobbler, prevT: number) {
     if (this.time < w.invulnUntil) return;
     this.hazards.forEach((h, hi) => {
+      if (isPlatform(h.def)) return;
       if ((w.hazardCooldown.get(hi) ?? -1) > this.time) return;
       for (const c of h.colliders) {
         const contact = c.contactCollider(w.collider, 0.04);
         if (!contact || contact.distance > 0.04) continue;
-        const v = pointVelocity(h.def, contact.point1, prevT, this.time);
+        const v = pointVelocity(h.def, contact.point1, this.hazardTime(prevT), this.hazardTime());
         let dx = v.x;
         let dz = v.z;
         let mag = Math.hypot(dx, dz);
@@ -862,11 +911,21 @@ export class Sim {
     w.outUntil = this.time;
   }
 
+  /** Take a Wobbler out of play without a fall (finished a race, became a spectator). */
+  retire(w: Wobbler) {
+    this.release(w, false);
+    if (w.heldBy != null) this.releaseFromHolder(w);
+    this.setState(w, "out");
+    w.outUntil = Infinity;
+    w.vel = v3();
+    w.collider.setEnabled(false);
+  }
+
   private fallOut(w: Wobbler) {
     this.release(w, false);
     if (w.heldBy != null) this.releaseFromHolder(w);
     this.setState(w, "out");
-    w.outUntil = this.time + TUNING.respawn.delay;
+    w.outUntil = this.level.failRule === "out" ? Infinity : this.time + TUNING.respawn.delay;
     w.vel = v3();
     w.collider.setEnabled(false);
     this.events.push({ type: "fall", id: w.id });

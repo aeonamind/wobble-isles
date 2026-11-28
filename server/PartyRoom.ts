@@ -1,4 +1,4 @@
-import { Room, type Client } from "colyseus";
+import { Room, ServerError, type Client } from "colyseus";
 import { pack } from "msgpackr";
 import { SANDBOX, type LevelDef } from "../shared/level";
 import type { Vec3 } from "../shared/math";
@@ -23,12 +23,16 @@ import {
   type SnapMsg,
   type StateMsg,
   type WelcomeMsg,
+  PROTOCOL_VERSION,
+  VERSION_MISMATCH,
 } from "../shared/protocol";
 import { DT, Sim, TICK_RATE, type NetMsg, type SimEvent, type Wobbler } from "../shared/sim";
 import { generateRoomCode, releaseRoomCode } from "./roomCode";
 import { ShowRunner, type ShowHost } from "./ShowRunner";
 
 export interface JoinOptions {
+  /** Client protocol version (PROTOCOL_VERSION). */
+  v?: number;
   name?: string;
   color?: number;
   style?: string;
@@ -197,6 +201,13 @@ export class PartyRoom extends Room implements ShowHost {
     if (!ok && m.k === "grab" && sender) sender.client.send("i", { k: "drop", from: m.target, target: m.from } satisfies NetMsg);
     // Make NPC reactions visible to everyone.
     this.pendingEvents.push(...this.sim.events.splice(0));
+  }
+
+  onAuth(_client: Client, options: JoinOptions = {}) {
+    if (options.v !== PROTOCOL_VERSION) {
+      throw new ServerError(VERSION_MISMATCH, `Update needed: server protocol ${PROTOCOL_VERSION}, client ${options.v ?? "unknown"}`);
+    }
+    return true;
   }
 
   onJoin(client: Client, options: JoinOptions = {}) {

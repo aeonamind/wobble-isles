@@ -17,7 +17,10 @@ export class Hud {
   constructor() {
     // Controls are in Settings; the corner card only greets first-time players.
     if (localStorage.getItem("wobble-isles.helpSeen")) $("help").hidden = true;
-    else setTimeout(() => localStorage.setItem("wobble-isles.helpSeen", "1"), 20000);
+    else {
+      $("help").hidden = false;
+      setTimeout(() => localStorage.setItem("wobble-isles.helpSeen", "1"), 20000);
+    }
     $("room-copy").onclick = async () => {
       await navigator.clipboard?.writeText(inviteUrl($("room-code").textContent ?? "")).catch(() => {});
       $("room-copy").textContent = "Copied!";

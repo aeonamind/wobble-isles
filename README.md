@@ -8,6 +8,8 @@ across a carnival of floating sky islands. Built for 6–8 friends first, design
 - [Game design](docs/DESIGN.md)
 - [Art & audio direction](docs/ART.md)
 - [Third-party assets](docs/ASSETS.md)
+- [Changelog](CHANGELOG.md) · [Releasing](docs/RELEASING.md)
+- **Download the desktop app:** [latest release](https://github.com/aeonamind/wobble-isles/releases/latest)
 
 ## Run it
 
@@ -61,7 +63,7 @@ The app's page lives inside the app, so the menu has a **Server** field: `localh
 a LAN address such as `192.168.1.20` when a friend hosts with `npm start`, or the public server once it is deployed.
 Bake a default in at build time with `VITE_SERVER_URL=wss://… npm run app:build`. **Copy invite link** in the app
 gives the server's web address, so friends without the app can join from a browser.
-CI: *Actions → Desktop app → Run workflow* (or push an `app-v*` tag) builds all three platforms.
+Installed apps update themselves from [GitHub Releases](https://github.com/aeonamind/wobble-isles/releases).
 
 **Production:** `npm run build && npm start` serves the game and the server on one port (default 2567). Or `docker build -t wobble-isles .`
 

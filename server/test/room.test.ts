@@ -1,7 +1,7 @@
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
 import type { Room } from "@colyseus/sdk";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { packNet, unpackNet, type PongMsg, type RosterMsg, type SnapMsg, type WelcomeMsg } from "../../shared/protocol";
+import { PROTOCOL_VERSION, VERSION_MISMATCH, packNet, unpackNet, type PongMsg, type RosterMsg, type SnapMsg, type WelcomeMsg } from "../../shared/protocol";
 import type { NetMsg } from "../../shared/sim";
 import { app } from "../app";
 import type { PartyRoom } from "../PartyRoom";
@@ -61,20 +61,27 @@ describe("PartyRoom (real server, simulated clients)", () => {
   });
 
   async function pair() {
-    const host = await colyseus.sdk.create("party", { name: "Mai" });
+    const host = await colyseus.sdk.create("party", { name: "Mai", v: PROTOCOL_VERSION });
     const hw = await waitFor<WelcomeMsg>(host, "welcome");
-    const friend = await colyseus.sdk.joinById(hw.code, { name: "Long" });
+    const friend = await colyseus.sdk.joinById(hw.code, { name: "Long", v: PROTOCOL_VERSION });
     const fw = await waitFor<WelcomeMsg>(friend, "welcome");
     const room = colyseus.getRoomById(hw.code) as unknown as PartyRoom;
     return { host, friend, hw, fw, room };
   }
 
+  it("turns away a client with a different protocol version", async () => {
+    const host = await colyseus.sdk.create("party", { name: "Mai", v: PROTOCOL_VERSION });
+    const hw = await waitFor<WelcomeMsg>(host, "welcome");
+    await expect(colyseus.sdk.joinById(hw.code, { name: "Old", v: PROTOCOL_VERSION - 1 })).rejects.toMatchObject({ code: VERSION_MISMATCH });
+    await expect(colyseus.sdk.create("party", { name: "Older" })).rejects.toMatchObject({ code: VERSION_MISMATCH });
+  });
+
   it("create a room, join by code, everyone gets the roster", async () => {
-    const host = await colyseus.sdk.create("party", { name: "Mai" });
+    const host = await colyseus.sdk.create("party", { name: "Mai", v: PROTOCOL_VERSION });
     const hw = await waitFor<WelcomeMsg>(host, "welcome");
     expect(hw.code).toMatch(/^[A-Z2-9]{4}$/);
     const rosterP = waitFor<RosterMsg>(host, "roster", (r) => r.players.length === 2);
-    const friend = await colyseus.sdk.joinById(hw.code, { name: "Long" });
+    const friend = await colyseus.sdk.joinById(hw.code, { name: "Long", v: PROTOCOL_VERSION });
     const fw = await waitFor<WelcomeMsg>(friend, "welcome");
     expect(fw.you).not.toBe(hw.you);
     expect(fw.color).not.toBe(hw.color);

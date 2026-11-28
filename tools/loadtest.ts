@@ -6,7 +6,7 @@ import { boot } from "@colyseus/testing";
 import type { Room } from "@colyseus/sdk";
 import { app } from "../server/app";
 import type { PartyRoom } from "../server/PartyRoom";
-import { SEND_RATE, packNet, type WelcomeMsg } from "../shared/protocol";
+import { PROTOCOL_VERSION, SEND_RATE, packNet, type WelcomeMsg } from "../shared/protocol";
 
 const players = Number(process.argv[2] ?? 32);
 const seconds = Number(process.argv[3] ?? 20);
@@ -15,7 +15,7 @@ const colyseus = await boot(app);
 const bots: { room: Room; id: number; bytes: number }[] = [];
 let code = "";
 for (let i = 0; i < players; i++) {
-  const room = i === 0 ? await colyseus.sdk.create("party", { name: `Bot ${i}` }) : await colyseus.sdk.joinById(code, { name: `Bot ${i}` });
+  const room = i === 0 ? await colyseus.sdk.create("party", { name: `Bot ${i}`, v: PROTOCOL_VERSION }) : await colyseus.sdk.joinById(code, { name: `Bot ${i}`, v: PROTOCOL_VERSION });
   const welcome = await new Promise<WelcomeMsg>((r) => room.onMessage("welcome", r));
   if (i === 0) code = welcome.code;
   const bot = { room, id: welcome.you, bytes: 0 };

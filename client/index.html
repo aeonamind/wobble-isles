@@ -18,6 +18,10 @@
     <form id="menu" class="card menu" hidden>
       <h1>Wobble Isles</h1>
       <p class="sub">A jelly party royale in the sky</p>
+      <div id="menu-update" class="update-banner" hidden>
+        <span id="menu-update-text"></span>
+        <button type="button" id="menu-update-go">Update</button>
+      </div>
       <label>Your name <input id="menu-name" maxlength="16" autocomplete="nickname" spellcheck="false" /></label>
       <div class="look">
         <div id="menu-styles" class="look-styles"></div>
@@ -33,6 +37,7 @@
         >Server <input id="menu-server" placeholder="192.168.1.20 or play.example.com" autocomplete="off" spellcheck="false"
       /></label>
       <p id="menu-error" class="error" hidden></p>
+      <p class="version" id="menu-version"></p>
     </form>
 
     <div id="click-to-play" class="card overlay-card" hidden>
@@ -97,6 +102,7 @@
       <div class="settings-foot">
         <p class="keys"><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump · <b>Shift</b> dive · hold <b>LMB/E</b> grab, release to throw · <b>R</b> respawn · <b>F</b> Gremlin avalanche · <b>Enter</b> start (host)</p>
         <button type="button" id="settings-leave">Leave room</button>
+        <p class="version" id="settings-version"></p>
       </div>
     </div>
     <div id="touch" hidden>

@@ -1,12 +1,13 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineRoom, defineServer, matchMaker } from "colyseus";
 import compression from "compression";
 import express from "express";
-import { ROOM_NAME } from "../shared/protocol";
+import { PROTOCOL_VERSION, ROOM_NAME } from "../shared/protocol";
 import { initPhysics } from "../shared/sim";
 import { PartyRoom } from "./PartyRoom";
 
+const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
 const distDir = fileURLToPath(new URL("../dist", import.meta.url));
 
 // Rapier is WASM; load it before the first room is created.
@@ -19,7 +20,7 @@ export const app = defineServer({
   greet: false,
   express: (expressApp) => {
     expressApp.get("/health", (_req, res) => {
-      res.json({ ok: true });
+      res.json({ ok: true, version, protocol: PROTOCOL_VERSION });
     });
     expressApp.get("/stats", async (_req, res) => {
       const rooms = await matchMaker.query({ name: ROOM_NAME });

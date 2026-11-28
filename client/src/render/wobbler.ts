@@ -162,6 +162,47 @@ export class WobblerView {
     return this.shadowBlob;
   }
 
+  private nameplate: THREE.Sprite | null = null;
+  private nameText: string | null = null;
+
+  /** Floating name tag above the head (null hides it). */
+  setName(name: string | null) {
+    if (name === this.nameText) return;
+    this.nameText = name;
+    if (this.nameplate) {
+      this.root.remove(this.nameplate);
+      (this.nameplate.material as THREE.SpriteMaterial).map?.dispose();
+      this.nameplate.material.dispose();
+      this.nameplate = null;
+    }
+    if (!name) return;
+    const c = document.createElement("canvas");
+    const g = c.getContext("2d")!;
+    const font = "800 44px 'Trebuchet MS', system-ui, sans-serif";
+    g.font = font;
+    const w = Math.ceil(g.measureText(name).width) + 40;
+    c.width = w;
+    c.height = 72;
+    g.font = font;
+    g.fillStyle = "rgba(58, 36, 80, 0.78)";
+    g.beginPath();
+    g.roundRect(0, 6, w, 60, 30);
+    g.fill();
+    g.fillStyle = "#ffffff";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(name, w / 2, 38);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    const h = 0.32;
+    sprite.scale.set((h * w) / c.height, h, 1);
+    sprite.position.y = 1.45;
+    sprite.renderOrder = 10;
+    this.root.add(sprite);
+    this.nameplate = sprite;
+  }
+
   /** Visual reactions to simulation events. */
   impact(kind: "land" | "hit" | "bounce" | "jump" | "stomped", strength = 1) {
     if (kind === "stomped") {

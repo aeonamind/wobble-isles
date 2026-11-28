@@ -3,7 +3,9 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
 import { SANDBOX } from "../../shared/level";
-import { DT, Sim, WOBBLER_CENTER, type InputFrame, type SimEvent, type Wobbler } from "../../shared/sim";
+import { SEND_RATE, netStateOf, packNet } from "../../shared/protocol";
+import { DT, Sim, TICK_RATE, WOBBLER_CENTER, type InputFrame, type NetMsg, type SimEvent, type Wobbler } from "../../shared/sim";
+import type { NetClient } from "./net";
 import { CameraRig } from "./camera";
 import { Input } from "./input";
 import { Fx } from "./render/fx";
@@ -18,6 +20,8 @@ export const QUALITY_ORDER: Quality[] = ["auto", "low", "medium", "high"];
 export interface GameOptions {
   quality: Quality;
   bench: boolean;
+  /** Online: connected Party room. Offline sandbox when absent. */
+  net?: NetClient;
 }
 
 /**
@@ -62,6 +66,9 @@ export class Game {
   private maxScale = 1;
   private scaler = { time: 0, frames: 0, good: 0 };
   readonly gpu: string;
+  private net: NetClient | null;
+  private pendingEvents: SimEvent[] = [];
+  private pendingOut: NetMsg[] = [];
 
   constructor(
     private container: HTMLElement,
@@ -78,8 +85,16 @@ export class Game {
     this.gpu = gpuName(this.renderer);
     container.appendChild(this.renderer.domElement);
 
-    this.sim = new Sim(SANDBOX, 1);
-    this.player = this.sim.addWobbler(SANDBOX.spawn, "player", 0);
+    this.net = opts.net ?? null;
+    if (this.net) {
+      this.sim = new Sim(SANDBOX, 1, "client");
+      this.sim.jumpTo(Math.floor(this.net.serverTime() / DT));
+      this.player = this.sim.addWobbler(this.net.spawn, "player", this.net.color, this.net.you);
+      this.net.onRoster = () => this.updateNames();
+    } else {
+      this.sim = new Sim(SANDBOX, 1);
+      this.player = this.sim.addWobbler(SANDBOX.spawn, "player", 0);
+    }
     if (opts.bench) {
       for (let i = 0; i < 8; i++) this.sim.addWobbler({ x: (i % 4) * 2.5 - 3.75, y: 1, z: Math.floor(i / 4) * 2.5 - 1 }, "wander", (i + 1) % 8);
       this.bench = { start: performance.now() + 3000, frames: [], done: false };
@@ -106,6 +121,7 @@ export class Game {
 
     for (const w of this.sim.wobblers) this.addView(w);
     this.snapshotPrev();
+    this.updateNames();
 
     createTuningPanel(this.debug, { respawn: () => this.sim.forceRespawn(this.player) });
     document.addEventListener("pointerlockchange", () => this.hud.setLocked(this.input.pointerLocked || opts.bench));
@@ -115,6 +131,12 @@ export class Game {
     this.resize();
     if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = this;
     this.renderer.setAnimationLoop(() => this.frame());
+  }
+
+  /** Connection lost: freeze input and show the reconnect card. */
+  disconnected() {
+    document.exitPointerLock?.();
+    this.hud.showDisconnected();
   }
 
   private addView(w: Wobbler) {
@@ -156,8 +178,75 @@ export class Game {
       grab: i.grab,
     };
     this.snapshotPrev();
+    if (this.net) this.syncRemotes();
     this.sim.step(new Map([[this.player.id, frame]]));
     for (const e of this.sim.events) this.onEvent(e);
+    if (this.net) this.upload();
+  }
+
+  // ───────────────────────── Networking ─────────────────────────
+
+  /** Bring remote proxies, balls and routed interactions up to date before a tick. */
+  private syncRemotes() {
+    const net = this.net!;
+    const sample = net.sample(this.sim.time);
+    if (sample) {
+      for (const [id, state] of sample.wobblers) {
+        if (id === this.player.id) continue;
+        let w = this.sim.get(id);
+        if (!w) {
+          const color = net.roster.find((r) => r.id === id)?.color ?? id % 8;
+          w = this.sim.addWobbler(state.pos, "remote", color, id);
+          this.addView(w);
+          this.prev.set(id, { ...state.pos });
+          this.updateNames();
+        }
+        w.net = state;
+      }
+      sample.balls.forEach((b, i) => this.sim.setBall(i, b.pos, b.rot));
+    }
+    // Remove Wobblers the server no longer has (players who left).
+    const alive = new Set(net.latestIds());
+    if (alive.size) {
+      for (const w of [...this.sim.wobblers]) {
+        if (w.id === this.player.id || alive.has(w.id)) continue;
+        this.sim.removeWobbler(w.id);
+        const v = this.views.get(w.id);
+        if (v) {
+          this.scene.remove(v.root, v.blob);
+          this.views.delete(w.id);
+        }
+      }
+    }
+    for (const m of net.takeInbox()) {
+      const ok = this.sim.applyRemote(m);
+      // Can't be grabbed right now (fell out, already held): tell the grabber to let go.
+      if (!ok && m.k === "grab") this.sim.outbox.push({ k: "drop", from: m.target, target: m.from });
+    }
+    for (const e of net.takeEvents()) this.onEvent(e);
+  }
+
+  /** Upload our own Wobbler at SEND_RATE, with events and interactions since the last upload. */
+  private upload() {
+    const net = this.net!;
+    this.pendingEvents.push(...this.sim.events.filter((e) => e.id === this.player.id));
+    this.pendingOut.push(...this.sim.outbox.splice(0));
+    if (this.sim.tick % Math.round(TICK_RATE / SEND_RATE) !== 0) return;
+    net.sendState({
+      t: this.sim.tick,
+      w: packNet(this.player.id, netStateOf(this.player, this.sim.time)),
+      ev: this.pendingEvents.splice(0),
+      out: this.pendingOut.splice(0),
+    });
+  }
+
+  private updateNames() {
+    if (!this.net) return;
+    for (const [id, view] of this.views) {
+      const r = this.net.roster.find((p) => p.id === id);
+      view.setName(r && id !== this.player.id ? r.name : null);
+    }
+    this.hud.setRoom(this.net.code, this.net.roster, this.player.id);
   }
 
   private onEvent(e: SimEvent) {
@@ -238,15 +327,29 @@ export class Game {
     this.rig.addLook(look.x, look.y);
     if (this.opts.bench) this.rig.yaw += realDt * 0.25;
 
-    this.acc += dt;
-    let steps = 0;
-    while (this.acc >= DT && steps < 5) {
-      this.acc -= DT;
-      this.tick();
-      steps++;
+    let alpha: number;
+    if (this.net) {
+      // Online: follow the server clock so hazards line up for everyone.
+      const target = this.net.serverTime() / DT;
+      if (Math.abs(target - this.sim.tick) > 15) this.sim.jumpTo(Math.floor(target) - 1);
+      let steps = 0;
+      while (this.sim.tick + 1 <= target && steps < 5) {
+        this.tick();
+        steps++;
+      }
+      alpha = Math.max(0, Math.min(1, target - this.sim.tick));
+      this.hud.setPing(this.net.rtt);
+    } else {
+      this.acc += dt;
+      let steps = 0;
+      while (this.acc >= DT && steps < 5) {
+        this.acc -= DT;
+        this.tick();
+        steps++;
+      }
+      if (steps === 5) this.acc = 0; // tab was asleep; don't spiral
+      alpha = this.acc / DT;
     }
-    if (steps === 5) this.acc = 0; // tab was asleep; don't spiral
-    const alpha = this.acc / DT;
     this.renderTime = this.sim.time - DT + alpha * DT;
 
     // Wobblers

@@ -1,6 +1,8 @@
 // Minimal M1 HUD: controls help, debug stats (F3) and the performance-bench report.
 
+import type { RosterEntry } from "../../../shared/protocol";
 import type { Wobbler } from "../../../shared/sim";
+import { PLAYER_COLORS } from "../render/wobbler";
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -13,7 +15,15 @@ export class Hud {
 
   constructor() {
     $("perf").hidden = localStorage.getItem("wobble-isles.perf") === "0";
+    $("room-copy").onclick = async () => {
+      const url = new URL(location.href);
+      url.search = new URLSearchParams({ room: $("room-code").textContent ?? "" }).toString();
+      await navigator.clipboard?.writeText(url.toString()).catch(() => {});
+      $("room-copy").textContent = "Copied!";
+      setTimeout(() => ($("room-copy").textContent = "Copy invite link"), 1500);
+    };
     addEventListener("keydown", (e) => {
+      if (document.activeElement instanceof HTMLInputElement) return;
       if (e.code === "F3") {
         e.preventDefault();
         this.statsVisible = !this.statsVisible;
@@ -30,6 +40,27 @@ export class Hud {
   /** Round-trip time to the server in ms, or null while offline (M1 has no server yet). */
   setPing(ms: number | null) {
     this.ping = ms;
+  }
+
+  /** Room code chip + player list (online only). */
+  setRoom(code: string, roster: RosterEntry[], me: number) {
+    const el = $("room");
+    el.hidden = false;
+    $("room-code").textContent = code;
+    const list = $("room-players");
+    list.replaceChildren(
+      ...roster.map((p) => {
+        const li = document.createElement("li");
+        const dot = document.createElement("i");
+        dot.style.background = "#" + PLAYER_COLORS[p.color % PLAYER_COLORS.length].toString(16).padStart(6, "0");
+        li.append(dot, document.createTextNode(p.name + (p.id === me ? " (you)" : "") + (p.host ? " ★" : "")));
+        return li;
+      }),
+    );
+  }
+
+  showDisconnected() {
+    $("disconnected").hidden = false;
   }
 
   setQuality(label: string) {

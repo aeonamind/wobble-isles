@@ -1,10 +1,11 @@
-// The Wobbler contestant (ART.md §2): armless jelly gumdrop with pop-out nub hands,
+// The Wobbler contestant (ART.md §2): a tall gummy-jelly body with short rubbery arms and legs,
+// a head swirl and a glowing candy heart,
 // animated procedurally on top of the simulation state.
 
 import * as THREE from "three";
 import type { BodyStyle } from "../../../shared/protocol";
 import { WOBBLER_CENTER, WOBBLER_HEIGHT, type WobblerState } from "../../../shared/sim";
-import { faceTexture, type Expression } from "./face";
+import { faceTexture, heartTexture, type Expression } from "./face";
 import { addOutline, toon } from "./toon";
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -14,75 +15,93 @@ export const PLAYER_COLORS = [0xff7eb6, 0xff9f45, 0xffe156, 0x4fd6a5, 0x4db8ff, 
 const H = WOBBLER_HEIGHT;
 
 /**
- * Body silhouettes (ART.md §2): radius at a fraction of the height, feet at 0, top at 1.
- * All share the same collider, so the choice is purely cosmetic.
+ * Body silhouettes (ART.md §2): radius at a fraction of the height. The body sits on short
+ * legs (LEG_TOP) and ends below the head swirl. All share the same collider, so the choice
+ * is purely cosmetic. `face` is where the face strip starts, `swirl` where the curl sits.
  */
+export const LEG_TOP = 0.15;
 const PROFILES: Record<BodyStyle, { profile: [number, number][]; face: number }> = {
-  // Rounded jelly bean: the default.
+  // Tall rounded gummy: straight sides, soft dome. The default.
   bean: {
     profile: [
-      [0.0, 0.27],
-      [0.02, 0.35],
-      [0.07, 0.395],
-      [0.16, 0.415],
-      [0.32, 0.42],
-      [0.5, 0.412],
-      [0.65, 0.39],
-      [0.77, 0.355],
-      [0.86, 0.3],
-      [0.93, 0.22],
-      [0.975, 0.12],
-      [1.0, 0.0],
+      [0.15, 0.3],
+      [0.16, 0.34],
+      [0.19, 0.37],
+      [0.25, 0.385],
+      [0.4, 0.38],
+      [0.55, 0.37],
+      [0.7, 0.355],
+      [0.8, 0.33],
+      [0.87, 0.29],
+      [0.92, 0.22],
+      [0.95, 0.13],
+      [0.96, 0.0],
     ],
-    face: 0.62,
+    face: 0.68,
   },
-  // Wide-bottomed gumdrop (the original M1 shape, stretched).
+  // Wide hips tapering to a lower dome.
   gumdrop: {
     profile: [
-      [0.0, 0.3],
-      [0.02, 0.4],
-      [0.08, 0.44],
-      [0.2, 0.445],
-      [0.35, 0.43],
-      [0.5, 0.4],
-      [0.65, 0.355],
-      [0.78, 0.29],
-      [0.88, 0.21],
-      [0.95, 0.12],
-      [0.99, 0.04],
-      [1.0, 0.0],
+      [0.15, 0.33],
+      [0.17, 0.39],
+      [0.22, 0.415],
+      [0.3, 0.41],
+      [0.45, 0.385],
+      [0.6, 0.35],
+      [0.72, 0.31],
+      [0.82, 0.26],
+      [0.89, 0.2],
+      [0.93, 0.12],
+      [0.95, 0.0],
+    ],
+    face: 0.64,
+  },
+  // Pear: round belly, narrow top.
+  drop: {
+    profile: [
+      [0.15, 0.32],
+      [0.17, 0.38],
+      [0.22, 0.41],
+      [0.3, 0.405],
+      [0.42, 0.37],
+      [0.55, 0.31],
+      [0.66, 0.26],
+      [0.76, 0.21],
+      [0.84, 0.16],
+      [0.9, 0.1],
+      [0.94, 0.0],
     ],
     face: 0.58,
   },
-  // Teardrop with a pointy top.
-  drop: {
-    profile: [
-      [0.0, 0.3],
-      [0.03, 0.41],
-      [0.1, 0.445],
-      [0.22, 0.45],
-      [0.36, 0.425],
-      [0.5, 0.37],
-      [0.62, 0.3],
-      [0.72, 0.225],
-      [0.81, 0.15],
-      [0.89, 0.085],
-      [0.95, 0.04],
-      [1.0, 0.0],
-    ],
-    face: 0.44,
-  },
 };
+
+/** Where the face strip starts (fraction of the height). */
+export const faceAt = (style: BodyStyle) => PROFILES[style].face;
+
+/** Top of the body (fraction of the height), where the head swirl sits. */
+export const bodyTop = (style: BodyStyle) => PROFILES[style].profile.at(-1)![0];
 
 export function bodyRadiusAt(y: number, style: BodyStyle = "bean") {
   const p = PROFILES[style].profile;
   const k = y / H;
+  if (k < p[0][0]) return 0;
   for (let i = 1; i < p.length; i++) {
     const [y1, r1] = p[i];
     const [y0, r0] = p[i - 1];
     if (k <= y1) return r0 + ((k - y0) / (y1 - y0)) * (r1 - r0);
   }
   return 0;
+}
+
+/** A patch of the body surface (front-centred), lifted slightly off it, for face and belly decals. */
+function bodyPatch(style: BodyStyle, centerY: number, height: number, width: number) {
+  const pts: THREE.Vector2[] = [];
+  const n = 12;
+  for (let i = 0; i <= n; i++) {
+    const y = centerY - height / 2 + (height * i) / n;
+    pts.push(new THREE.Vector2(bodyRadiusAt(y, style) + 0.006, y));
+  }
+  return new THREE.LatheGeometry(pts, 20, -width / 2, width);
 }
 
 const bodyGeos = new Map<BodyStyle, THREE.LatheGeometry>();
@@ -139,8 +158,9 @@ export class WobblerView {
   private bodyMat: THREE.MeshToonMaterial;
   private face: THREE.Mesh;
   private faceMat: THREE.MeshBasicMaterial;
-  private hands: THREE.Mesh[] = [];
-  private feet: THREE.Mesh[] = [];
+  private jellyMats: THREE.MeshToonMaterial[] = [];
+  private arms: THREE.Group[] = []; // shoulder pivots
+  private legs: THREE.Group[] = []; // hip pivots
   private shadowBlob: THREE.Mesh;
 
   private yaw = 0;
@@ -165,41 +185,90 @@ export class WobblerView {
     body.castShadow = true;
     addOutline(body, 0.035);
 
-    // Glossy jelly highlight
-    const gloss = new THREE.Mesh(
-      new THREE.SphereGeometry(0.07, 12, 8),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 }),
-    );
-    gloss.scale.set(0.7, 1.4, 0.4);
-    const gy = H * (style === "drop" ? 0.62 : 0.78);
-    gloss.position.set(-0.17, gy, bodyRadiusAt(gy, style) * 0.78);
-    gloss.rotation.z = 0.5;
+    const dark = new THREE.Color(color).multiplyScalar(0.72);
+    const limbMat = toon(color);
+    const footMat = toon(dark);
+    this.jellyMats = [this.bodyMat, limbMat, footMat];
+    const top = H * bodyTop(style);
 
-    // Face: a curved strip that hugs the body
-    const fy = H * PROFILES[style].face + 0.21;
-    const fr = bodyRadiusAt(fy, style) + 0.006;
-    const faceGeo = new THREE.CylinderGeometry(fr, bodyRadiusAt(fy - 0.42, style) + 0.006, 0.42, 24, 1, true, -1.05, 2.1);
+    // Glossy jelly highlights
+    const glossMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+    const gloss = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), glossMat);
+    gloss.scale.set(0.6, 1.5, 0.4);
+    const gy = top - 0.24;
+    gloss.position.set(-0.19, gy, bodyRadiusAt(gy, style) * 0.75);
+    gloss.rotation.z = 0.35;
+    const gloss2 = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 6), glossMat);
+    gloss2.position.set(-0.24, H * 0.32, bodyRadiusAt(H * 0.32, style) * 0.7);
+
+    // Face: a patch that hugs the body
+    const faceY = H * PROFILES[style].face;
     this.faceMat = new THREE.MeshBasicMaterial({ map: faceTexture("neutral"), transparent: true, depthWrite: false });
-    this.face = new THREE.Mesh(faceGeo, this.faceMat);
-    this.face.position.y = fy - 0.21;
+    this.face = new THREE.Mesh(bodyPatch(style, faceY, 0.42, 2.1), this.faceMat);
 
-    // Nub hands (hidden until needed) and stubby feet
-    const handGeo = new THREE.SphereGeometry(0.1, 14, 10);
+    // Glowing candy heart on the belly
+    const heart = new THREE.Mesh(
+      bodyPatch(style, H * 0.37, 0.26, 0.8),
+      new THREE.MeshBasicMaterial({ map: heartTexture(), transparent: true, depthWrite: false }),
+    );
+
+    // Head swirl: a soft-serve curl of shrinking jelly balls
+    const swirl = new THREE.Group();
+    // A rising spiral that tips over: radius shrinks from 0.11 to 0.03 along it
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      const a = t * Math.PI * 1.6;
+      const r = 0.11 - t * 0.08;
+      const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), this.bodyMat);
+      b.position.set(Math.sin(a) * 0.05 * t, 0.17 * Math.sin(t * Math.PI * 0.62), -Math.cos(a) * 0.05 * t + 0.02 * t);
+      b.castShadow = true;
+      if (i === 0 || i === 10) addOutline(b, 0.018);
+      swirl.add(b);
+    }
+    swirl.position.y = top - 0.07;
+
+    // Short rubbery arms with mitten hands, hinged at the shoulder
+    const shoulderY = H * 0.55;
     for (const s of [-1, 1]) {
-      const h = new THREE.Mesh(handGeo, this.bodyMat);
-      h.position.set(s * 0.43, H * 0.45, 0.12);
-      h.castShadow = true;
-      addOutline(h, 0.025);
-      this.hands.push(h);
-      const f = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), toon(new THREE.Color(color).multiplyScalar(0.8)));
-      f.scale.set(1, 0.55, 1.35);
-      f.position.set(s * 0.18, 0.05, 0.08);
-      f.castShadow = true;
-      addOutline(f, 0.025);
-      this.feet.push(f);
+      const pivot = new THREE.Group();
+      pivot.position.set(s * (bodyRadiusAt(shoulderY, style) - 0.05), shoulderY, 0.02);
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.14, 4, 10), limbMat);
+      arm.position.y = -0.11;
+      arm.castShadow = true;
+      addOutline(arm, 0.02);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), limbMat);
+      hand.scale.set(1, 1.1, 0.8);
+      hand.position.y = -0.25;
+      hand.castShadow = true;
+      addOutline(hand, 0.02);
+      const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), limbMat);
+      thumb.position.set(-s * 0.075, -0.2, 0.05);
+      addOutline(thumb, 0.015);
+      pivot.add(arm, hand, thumb);
+      this.arms.push(pivot);
     }
 
-    this.squash.add(body, gloss, this.face, ...this.hands, ...this.feet);
+    // Short stubby legs with chunky feet, hinged at the hip
+    const hipY = H * LEG_TOP + 0.05;
+    const legGeo = new THREE.CapsuleGeometry(0.1, 0.06, 4, 10);
+    const footGeo = new THREE.SphereGeometry(0.12, 14, 10);
+    for (const s of [-1, 1]) {
+      const pivot = new THREE.Group();
+      pivot.position.set(s * 0.15, hipY, 0);
+      const leg = new THREE.Mesh(legGeo, footMat);
+      leg.position.y = -0.09;
+      leg.castShadow = true;
+      addOutline(leg, 0.022);
+      const foot = new THREE.Mesh(footGeo, footMat);
+      foot.scale.set(1, 0.6, 1.3);
+      foot.position.set(0, -hipY + 0.06, 0.05);
+      foot.castShadow = true;
+      addOutline(foot, 0.022);
+      pivot.add(leg, foot);
+      this.legs.push(pivot);
+    }
+
+    this.squash.add(body, gloss, gloss2, this.face, heart, swirl, ...this.arms, ...this.legs);
     this.squash.position.y = -WOBBLER_CENTER;
     this.tilt.position.y = WOBBLER_CENTER;
     this.tilt.add(this.squash);
@@ -330,13 +399,13 @@ export class WobblerView {
       case "ragdoll":
         tumbling = !f.grounded;
         pitch = f.grounded ? Math.PI / 2 : 0;
-        handsTarget = 1;
+        handsTarget = 0;
         expr = "dizzy";
         break;
       case "held":
         pitch = -0.5;
         roll = Math.sin(time * 14) * 0.25;
-        handsTarget = 1;
+        handsTarget = 0;
         expr = "shocked";
         break;
     }
@@ -374,20 +443,30 @@ export class WobblerView {
     const sxz = 1 / Math.sqrt(Math.max(0.3, sy));
     this.squash.scale.set(sxz, sy, sxz);
 
-    this.feet.forEach((foot, i) => {
+    // Legs swing from the hip; held Wobblers kick
+    this.legs.forEach((leg, i) => {
       const phase = this.gait + i * Math.PI;
-      foot.position.z = 0.08 + (running ? Math.sin(phase) * 0.14 : 0);
-      foot.position.y = 0.05 + (running ? Math.max(0, Math.cos(phase)) * 0.06 : 0);
-      if (f.state === "held") foot.position.z = 0.08 + Math.sin(time * 18 + i * Math.PI) * 0.12; // kicking
+      let swing = running ? Math.sin(phase) * 0.7 : 0;
+      if (f.state === "held") swing = Math.sin(time * 18 + i * Math.PI) * 0.6;
+      else if (f.state === "dive" || f.state === "slide") swing = -0.3;
+      leg.rotation.x = -swing;
     });
 
-    const h = Math.max(0, this.handsOut.update(handsTarget, dt));
-    this.hands.forEach((hand, i) => {
-      hand.scale.setScalar(Math.max(0.001, h));
-      hand.position.z = 0.12 + h * 0.2;
-      hand.position.x = (i ? 1 : -1) * (0.36 + h * 0.08);
-      hand.position.y = H * 0.45;
-      hand.visible = h > 0.02;
+    // Arms: hang at the sides, pump against the legs when running, reach forward to grab,
+    // stretch ahead in a dive, flail when thrown or tumbling
+    const reach = Math.max(0, this.handsOut.update(handsTarget, dt));
+    this.arms.forEach((arm, i) => {
+      const s = i ? 1 : -1;
+      let ax = running ? Math.sin(this.gait + i * Math.PI) * 0.8 : Math.sin(time * 2.4 + i) * 0.05;
+      let az = s * (0.6 + (f.grounded ? 0 : 0.5));
+      if (f.state === "ragdoll" || f.state === "held") {
+        ax = Math.sin(time * 16 + i * 2) * 1.2;
+        az = s * (1.2 + Math.sin(time * 13 + i) * 0.4);
+      }
+      // Reaching blends toward arms straight ahead (-π/2 is forward; a dive points them along the body)
+      const fwd = f.state === "dive" || f.state === "slide" ? -Math.PI + 0.2 : -1.45;
+      arm.rotation.x = ax + (fwd - ax) * Math.min(1, reach);
+      arm.rotation.z = az + (s * 0.15 - az) * Math.min(1, reach);
     });
 
     // Face
@@ -403,8 +482,10 @@ export class WobblerView {
     }
 
     // Respawn invulnerability: soft flicker
-    this.bodyMat.opacity = f.invulnerable ? 0.55 + Math.sin(time * 30) * 0.25 : 1;
-    this.bodyMat.transparent = f.invulnerable;
+    for (const m of this.jellyMats) {
+      m.opacity = f.invulnerable ? 0.55 + Math.sin(time * 30) * 0.25 : 1;
+      m.transparent = f.invulnerable;
+    }
 
     if (groundY !== null) {
       const height = Math.max(0, f.y - WOBBLER_CENTER - groundY);

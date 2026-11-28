@@ -5,6 +5,10 @@ one version for the whole game (web client, desktop app and server). How to cut 
 
 ## [Unreleased]
 
+### Changed
+- New Wobbler look: a tall gummy-jelly body with short arms and legs, a head swirl, a glowing candy heart and an open smile. Arms swing when running, reach to grab and flail when thrown.
+- Loading screen with key art: the cast on a candy island, the title and a progress bar, instead of plain "Loading…".
+
 ## [0.4.0] - 2026-11-28 · M4 Polish
 
 ### Added

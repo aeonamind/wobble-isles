@@ -90,6 +90,7 @@ Server env: `WOBBLE_PLAN=round-a,round-b` forces the rounds before the Final.
 - **Protocol:** bump `PROTOCOL_VERSION` when messages, packed state or shared simulation change incompatibly. Old desktop apps are then turned away (code 4426) and offered the update.
 - **Ground fix:** grounded Wobblers are lifted back to rest height each tick. Rapier's controller otherwise lets an idle capsule creep into the floor until it can't move. Regression test: `shared/test/ground.test.ts`.
 - **Wobbler size:** capsule `WOBBLER_HALF 0.245`, radius 0.38, so 1.25 m tall. Changing it affects stomps, sweeper heights and spawn layouts; re-run all tests.
+- **Deployment:** like the owner's other games. `deploy.yml` builds `aeonamind/wobble-isles:<sha>`, bumps `infra/wobble-isles/values.yaml` in aeonamind/gitops, and Argo CD syncs the k3s cluster (Hetzner, Traefik, Cloudflare in front). Push `playtest/**` to deploy a branch.
 - **Versioning:**
   - One SemVer version for the whole game, kept in `package.json`.
   - Release with `npm version` on a release branch, merge it through a PR, then push the tag (`docs/RELEASING.md`). The `v*` tag runs `.github/workflows/release.yml`, which publishes the GitHub Release (installers + signed `latest.json`) and pushes the Docker Hub image.
@@ -111,13 +112,16 @@ Server env: `WOBBLE_PLAN=round-a,round-b` forces the rounds before the Final.
 | M4 polish: characters, audio, settings, Fail Cam, awards, Jelly Clump, touch, PWA, Tauri app | Merged (PR #5) |
 | Versioning and releases: CHANGELOG, protocol check, auto-update, release workflow, Docker Hub | Merged (PR #6, #7) |
 | v0.4.0 release (`release/v0.4.0`): updater key rotated with a password, release commit | **PR open, waiting for merge**; tag `v0.4.0` pushed after the merge |
+| New Wobbler look (`art/wobbler-limbs`, stacked on `release/v0.4.0`): tall body, arms and legs, head swirl, candy heart | **PR open**, merge after v0.4.0 |
+| Loading screen + key art (`art/key-art`, stacked on `art/wobbler-limbs`) | **PR open** |
+| Continuous deployment (`cicd/deploy`, stacked on `art/key-art`) to wobble.eugenebox.uk via aeonamind/gitops (`infra/wobble-isles`, gitops PR #5) | **PR open** |
 
 **Next steps, in order:**
 
 1. The owner adds the repo secrets and variables listed in `docs/RELEASING.md`, then merges `release/v0.4.0` with a merge commit:
    - `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
-   - `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
-   - variable `DOCKERHUB_REPO`
+   - `DOCKER_USERNAME`, `DOCKER_PASSWORD` and `GITOPS_TOKEN` (the same names as the owner's other repos)
+   - variable `DOCKERHUB_REPO` (`aeonamind/wobble-isles`)
 2. Publish v0.4.0: push the tag `v0.4.0` (`docs/RELEASING.md`).
    - Then check that the workflow produced the installers and the Docker image.
 3. **M5 launch:**

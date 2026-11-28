@@ -64,9 +64,10 @@ Installed apps check `releases/latest/download/latest.json` when the menu opens,
 |---|---|---|
 | Secrets | `TAURI_SIGNING_PRIVATE_KEY` | Contents of `~/.tauri/wobble-isles.key` (the updater signing key) |
 | Secrets | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Contents of `~/.tauri/wobble-isles.key.password` (the key's password) |
-| Secrets | `DOCKERHUB_USERNAME` | Docker Hub user |
-| Secrets | `DOCKERHUB_TOKEN` | Docker Hub access token (Account settings → Personal access tokens, Read & Write) |
-| Variables | `DOCKERHUB_REPO` | e.g. `yourname/wobble-isles`; the docker job is skipped while unset |
+| Secrets | `DOCKER_USERNAME` | Docker Hub user (same secret names as the owner's other repos) |
+| Secrets | `DOCKER_PASSWORD` | Docker Hub access token (Account settings → Personal access tokens, Read & Write) |
+| Secrets | `GITOPS_TOKEN` | Token that can push to aeonamind/gitops (deploy workflow) |
+| Variables | `DOCKERHUB_REPO` | `aeonamind/wobble-isles`; the release docker job is skipped while unset |
 | Variables | `APP_SERVER_URL` | Default server baked into the app, e.g. `wss://play.example.com` (after M5) |
 
 **Back up the updater key.** Its public half is in `tauri.conf.json`, and every installed app only accepts updates signed by it. If the key is lost, existing installs can never auto-update again: players would have to reinstall by hand. Back up both `~/.tauri/wobble-isles.key` and `~/.tauri/wobble-isles.key.password`: the key is useless without its password.
@@ -84,3 +85,11 @@ Milestones before versioning were tagged after the fact:
 | `v0.3.0` | M3 merge |
 
 These are plain tags with no release builds.
+
+## Continuous deployment
+
+`.github/workflows/deploy.yml` deploys every push to `main` (and to any `playtest/**` branch) to **wobble.eugenebox.uk**:
+tests → image `aeonamind/wobble-isles:<sha>` on Docker Hub → `infra/wobble-isles/values.yaml` in aeonamind/gitops bumped to that SHA → Argo CD syncs.
+
+- **Try a branch before merging it:** `git push origin HEAD:playtest/<name>`. It replaces what is live until the next deploy.
+- **Hosting:** the cluster is on Hetzner in Europe, about 300 ms from Vietnam. The Singapore move (M5) is still open.

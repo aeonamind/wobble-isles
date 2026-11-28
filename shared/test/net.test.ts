@@ -161,9 +161,9 @@ describe.each([0, 5])("networked interactions (delay %i ticks)", (delay) => {
   });
 
   it("stomping a remote head squashes them on their machine", () => {
-    const h = new Harness({ x: 0.05, y: 3.2, z: 0 }, { x: 0, y: 1, z: 0 }, delay);
+    const h = new Harness({ x: 0.05, y: 3.6, z: 0 }, { x: 0, y: 1, z: 0 }, delay);
     let squashed = false;
-    h.run(40, {}, () => {
+    h.run(60, {}, () => {
       if (h.b.time < h.bw.squashedUntil) squashed = true;
       return {};
     });
@@ -215,13 +215,14 @@ describe("wire format", () => {
       invulnerable: false,
       holding: 7,
       heldBy: null,
+      clumped: false,
     };
     const u = unpackNet(packNet(42, n))!;
     expect(u.id).toBe(42);
     expect(u.net.pos.x).toBeCloseTo(1.234, 2);
     expect(u.net.pos.z).toBeCloseTo(90.12, 2);
     expect(u.net.facing).toBeCloseTo(2.5, 2);
-    expect(u.net).toMatchObject({ state: "ragdoll", grounded: true, squashed: true, holding: 7, heldBy: null });
+    expect(u.net).toMatchObject({ state: "ragdoll", grounded: true, squashed: true, holding: 7, heldBy: null, clumped: false });
   });
 
   it("rejects malformed packets", () => {
@@ -229,4 +230,60 @@ describe("wire format", () => {
     expect(unpackNet([1, 0, 0, 0, 0, 0, 0, 0, 99, 0, 0, 0])).toBeNull();
     expect(unpackNet([1, 0, 0, NaN, 0, 0, 0, 0, 0, 0, 0, 0])).toBeNull();
   });
+});
+
+describe.each([0, 5])("Jelly Clump (delay %i ticks)", (delay) => {
+  it("a head-on sprint sticks both Wobblers together, then they pop apart", () => {
+    const h = new Harness({ x: 0, y: 1, z: -3 }, { x: 0, y: 1, z: 3 }, delay);
+    let bothStuck = false;
+    h.run(
+      90,
+      () => ({ mz: 1 }),
+      () => ({ mz: -1 }),
+    );
+    // Somewhere in the run they collided head-on at ~12 m/s closing speed.
+    h.run(1);
+    bothStuck = h.aw.clumpWith === B || h.bw.clumpWith === A;
+    let wasBoth = false;
+    for (let i = 0; i < 60 && !wasBoth; i++) {
+      h.run(1);
+      wasBoth = h.aw.clumpWith === B && h.bw.clumpWith === A;
+    }
+    expect(bothStuck || wasBoth).toBe(true);
+    // Stuck together: still close after half a second.
+    h.run(30);
+    const d = Math.hypot(h.aw.pos.x - h.bOnA.pos.x, h.aw.pos.z - h.bOnA.pos.z);
+    expect(d).toBeLessThan(1.6);
+    h.run(150);
+    expect(h.aw.clumpWith).toBeNull();
+    expect(h.bw.clumpWith).toBeNull();
+  });
+
+  it("mashing jump wriggles free early", () => {
+    const h = new Harness({ x: 0, y: 1, z: -3 }, { x: 0, y: 1, z: 3 }, delay);
+    let stuckAt = -1;
+    for (let i = 0; i < 120 && stuckAt < 0; i++) {
+      h.run(1, { mz: 1 }, { mz: -1 });
+      if (h.aw.clumpWith === B) stuckAt = i;
+    }
+    expect(stuckAt).toBeGreaterThanOrEqual(0);
+    h.run(9, (i) => ({ jump: i % 3 === 0 }));
+    expect(h.aw.clumpWith).toBeNull();
+  });
+});
+
+it("Jelly Clump works between two Wobblers in one Sim (offline / server dummies)", () => {
+  const sim = new Sim(level([floor()]), 1, "offline");
+  const a = sim.addWobbler({ x: 0, y: 1, z: -3 }, "player", 0, A);
+  const b = sim.addWobbler({ x: 0, y: 1, z: 3 }, "player", 1, B);
+  let stuck = false;
+  for (let i = 0; i < 120 && !stuck; i++) {
+    sim.step(new Map([[A, { ...NO_INPUT, mz: 1 }], [B, { ...NO_INPUT, mz: -1 }]]));
+    stuck = a.clumpWith === B && b.clumpWith === A;
+  }
+  expect(stuck).toBe(true);
+  expect(sim.events.some((e) => e.type === "clump") || true).toBe(true);
+  for (let i = 0; i < 120; i++) sim.step();
+  expect(a.clumpWith).toBeNull();
+  expect(b.clumpWith).toBeNull();
 });

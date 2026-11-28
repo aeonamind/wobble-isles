@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#FFB3D9" />
     <link rel="icon" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="description" content="A jelly party royale in the sky. Tumble through chaotic rounds with your friends." />
     <title>Wobble Isles</title>
   </head>
   <body>
@@ -15,12 +19,19 @@
       <h1>Wobble Isles</h1>
       <p class="sub">A jelly party royale in the sky</p>
       <label>Your name <input id="menu-name" maxlength="16" autocomplete="nickname" spellcheck="false" /></label>
+      <div class="look">
+        <div id="menu-styles" class="look-styles"></div>
+        <div id="menu-colors" class="look-colors"></div>
+      </div>
       <button type="button" id="menu-create" class="primary">Create a room</button>
       <div class="join-row">
         <input id="menu-code" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" />
         <button type="submit" id="menu-join">Join</button>
       </div>
       <button type="button" id="menu-solo" class="ghost">Practice alone</button>
+      <label id="menu-server-row" class="server-row" hidden
+        >Server <input id="menu-server" placeholder="192.168.1.20 or play.example.com" autocomplete="off" spellcheck="false"
+      /></label>
       <p id="menu-error" class="error" hidden></p>
     </form>
 
@@ -28,6 +39,7 @@
       <h1>Wobble Isles</h1>
       <p class="sub" id="ctp-sub">Feel Sandbox</p>
       <p>Click to play</p>
+      <p class="ctp-hint">Esc: settings</p>
     </div>
 
     <div id="room" hidden>
@@ -59,6 +71,11 @@
       <div class="intro-extra" id="intro-extra"></div>
     </div>
     <div id="show-count" hidden></div>
+    <div id="failcam" hidden>
+      <div class="bar top"></div>
+      <div class="bar bottom"></div>
+      <div class="failcam-tag"><b>FAIL CAM</b><span id="failcam-label"></span></div>
+    </div>
     <div id="show-spectate" hidden></div>
     <div id="show-toasts"></div>
     <div id="show-results" class="card" hidden>
@@ -70,8 +87,26 @@
       <p class="intro-index">Show Champion</p>
       <h1 id="podium-champ"></h1>
       <ol id="podium-list"></ol>
+      <div id="podium-awards" hidden></div>
     </div>
 
+    <button type="button" id="settings-open" title="Settings (Esc)" aria-label="Settings">⚙</button>
+    <div id="settings" class="card" hidden>
+      <div class="settings-head"><h2>Settings</h2><button type="button" id="settings-close" aria-label="Close">✕</button></div>
+      <div id="settings-body"></div>
+      <div class="settings-foot">
+        <p class="keys"><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump · <b>Shift</b> dive · hold <b>LMB/E</b> grab, release to throw · <b>R</b> respawn · <b>F</b> Gremlin avalanche · <b>Enter</b> start (host)</p>
+        <button type="button" id="settings-leave">Leave room</button>
+      </div>
+    </div>
+    <div id="touch" hidden>
+      <div id="touch-zone"></div>
+      <div id="touch-stick" hidden><div id="touch-knob"></div></div>
+      <button type="button" id="touch-grab" class="tbtn">Grab</button>
+      <button type="button" id="touch-dive" class="tbtn">Dive</button>
+      <button type="button" id="touch-jump" class="tbtn big">Jump</button>
+      <button type="button" id="touch-gremlin" class="tbtn gremlin" hidden>Avalanche</button>
+    </div>
     <div id="perf" title="P toggles"><span id="perf-fps">-- FPS</span><span id="perf-ping">ping —</span><span id="perf-q" class="off">Auto</span></div>
     <pre id="stats" hidden></pre>
     <pre id="bench" hidden></pre>

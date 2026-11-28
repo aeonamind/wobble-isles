@@ -31,6 +31,7 @@ const netOf = (id: number, x: number, z: number, state: "normal" | "ragdoll" = "
     invulnerable: false,
     holding: null,
     heldBy: null,
+      clumped: false,
   });
 
 describe("room codes", () => {

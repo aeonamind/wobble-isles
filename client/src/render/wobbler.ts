@@ -2,7 +2,8 @@
 // animated procedurally on top of the simulation state.
 
 import * as THREE from "three";
-import { WOBBLER_CENTER, type WobblerState } from "../../../shared/sim";
+import type { BodyStyle } from "../../../shared/protocol";
+import { WOBBLER_CENTER, WOBBLER_HEIGHT, type WobblerState } from "../../../shared/sim";
 import { faceTexture, type Expression } from "./face";
 import { addOutline, toon } from "./toon";
 
@@ -10,38 +11,89 @@ const UP = new THREE.Vector3(0, 1, 0);
 
 export const PLAYER_COLORS = [0xff7eb6, 0xff9f45, 0xffe156, 0x4fd6a5, 0x4db8ff, 0x9b6bff, 0xa0705a, 0xf4f1ea];
 
-/** Body profile (radius at height), feet at y = 0, top at y = 1. */
-const PROFILE: [number, number][] = [
-  [0.0, 0.3],
-  [0.02, 0.4],
-  [0.08, 0.44],
-  [0.2, 0.445],
-  [0.35, 0.43],
-  [0.5, 0.4],
-  [0.65, 0.355],
-  [0.78, 0.29],
-  [0.88, 0.21],
-  [0.95, 0.12],
-  [0.99, 0.04],
-  [1.0, 0.0],
-];
+const H = WOBBLER_HEIGHT;
 
-export function bodyRadiusAt(y: number) {
-  for (let i = 1; i < PROFILE.length; i++) {
-    const [y1, r1] = PROFILE[i];
-    const [y0, r0] = PROFILE[i - 1];
-    if (y <= y1) return r0 + ((y - y0) / (y1 - y0)) * (r1 - r0);
+/**
+ * Body silhouettes (ART.md §2): radius at a fraction of the height, feet at 0, top at 1.
+ * All share the same collider, so the choice is purely cosmetic.
+ */
+const PROFILES: Record<BodyStyle, { profile: [number, number][]; face: number }> = {
+  // Rounded jelly bean: the default.
+  bean: {
+    profile: [
+      [0.0, 0.27],
+      [0.02, 0.35],
+      [0.07, 0.395],
+      [0.16, 0.415],
+      [0.32, 0.42],
+      [0.5, 0.412],
+      [0.65, 0.39],
+      [0.77, 0.355],
+      [0.86, 0.3],
+      [0.93, 0.22],
+      [0.975, 0.12],
+      [1.0, 0.0],
+    ],
+    face: 0.62,
+  },
+  // Wide-bottomed gumdrop (the original M1 shape, stretched).
+  gumdrop: {
+    profile: [
+      [0.0, 0.3],
+      [0.02, 0.4],
+      [0.08, 0.44],
+      [0.2, 0.445],
+      [0.35, 0.43],
+      [0.5, 0.4],
+      [0.65, 0.355],
+      [0.78, 0.29],
+      [0.88, 0.21],
+      [0.95, 0.12],
+      [0.99, 0.04],
+      [1.0, 0.0],
+    ],
+    face: 0.58,
+  },
+  // Teardrop with a pointy top.
+  drop: {
+    profile: [
+      [0.0, 0.3],
+      [0.03, 0.41],
+      [0.1, 0.445],
+      [0.22, 0.45],
+      [0.36, 0.425],
+      [0.5, 0.37],
+      [0.62, 0.3],
+      [0.72, 0.225],
+      [0.81, 0.15],
+      [0.89, 0.085],
+      [0.95, 0.04],
+      [1.0, 0.0],
+    ],
+    face: 0.44,
+  },
+};
+
+export function bodyRadiusAt(y: number, style: BodyStyle = "bean") {
+  const p = PROFILES[style].profile;
+  const k = y / H;
+  for (let i = 1; i < p.length; i++) {
+    const [y1, r1] = p[i];
+    const [y0, r0] = p[i - 1];
+    if (k <= y1) return r0 + ((k - y0) / (y1 - y0)) * (r1 - r0);
   }
   return 0;
 }
 
-let bodyGeo: THREE.LatheGeometry | null = null;
-function getBodyGeometry() {
-  if (bodyGeo) return bodyGeo;
-  const pts = PROFILE.map(([y, r]) => new THREE.Vector2(Math.max(0.001, r), y));
-  bodyGeo = new THREE.LatheGeometry(pts, 40);
-  bodyGeo.computeVertexNormals();
-  return bodyGeo;
+const bodyGeos = new Map<BodyStyle, THREE.LatheGeometry>();
+function getBodyGeometry(style: BodyStyle) {
+  let g = bodyGeos.get(style);
+  if (g) return g;
+  const pts = PROFILES[style].profile.map(([y, r]) => new THREE.Vector2(Math.max(0.001, r), y * H));
+  g = new THREE.LatheGeometry(pts, 40);
+  g.computeVertexNormals();
+  bodyGeos.set(style, g);
+  return g;
 }
 
 export interface WobblerFrame {
@@ -104,9 +156,12 @@ export class WobblerView {
   private expr: Expression = "neutral";
   private exprHold = 0;
 
-  constructor(color: number) {
+  constructor(
+    color: number,
+    readonly style: BodyStyle = "bean",
+  ) {
     this.bodyMat = toon(color);
-    const body = new THREE.Mesh(getBodyGeometry(), this.bodyMat);
+    const body = new THREE.Mesh(getBodyGeometry(style), this.bodyMat);
     body.castShadow = true;
     addOutline(body, 0.035);
 
@@ -116,22 +171,23 @@ export class WobblerView {
       new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 }),
     );
     gloss.scale.set(0.7, 1.4, 0.4);
-    gloss.position.set(-0.2, 0.78, bodyRadiusAt(0.78) * 0.75);
+    const gy = H * (style === "drop" ? 0.62 : 0.78);
+    gloss.position.set(-0.17, gy, bodyRadiusAt(gy, style) * 0.78);
     gloss.rotation.z = 0.5;
 
     // Face: a curved strip that hugs the body
-    const fy = 0.6;
-    const fr = bodyRadiusAt(fy) + 0.006;
-    const faceGeo = new THREE.CylinderGeometry(fr, bodyRadiusAt(fy - 0.17) + 0.006, 0.34, 24, 1, true, -0.95, 1.9);
+    const fy = H * PROFILES[style].face + 0.21;
+    const fr = bodyRadiusAt(fy, style) + 0.006;
+    const faceGeo = new THREE.CylinderGeometry(fr, bodyRadiusAt(fy - 0.42, style) + 0.006, 0.42, 24, 1, true, -1.05, 2.1);
     this.faceMat = new THREE.MeshBasicMaterial({ map: faceTexture("neutral"), transparent: true, depthWrite: false });
     this.face = new THREE.Mesh(faceGeo, this.faceMat);
-    this.face.position.y = fy - 0.085;
+    this.face.position.y = fy - 0.21;
 
     // Nub hands (hidden until needed) and stubby feet
     const handGeo = new THREE.SphereGeometry(0.1, 14, 10);
     for (const s of [-1, 1]) {
       const h = new THREE.Mesh(handGeo, this.bodyMat);
-      h.position.set(s * 0.43, 0.45, 0.12);
+      h.position.set(s * 0.43, H * 0.45, 0.12);
       h.castShadow = true;
       addOutline(h, 0.025);
       this.hands.push(h);
@@ -198,7 +254,7 @@ export class WobblerView {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
     const h = 0.32;
     sprite.scale.set((h * w) / c.height, h, 1);
-    sprite.position.y = 1.45;
+    sprite.position.y = H + 0.42;
     sprite.renderOrder = 10;
     this.root.add(sprite);
     this.nameplate = sprite;
@@ -330,6 +386,7 @@ export class WobblerView {
       hand.scale.setScalar(Math.max(0.001, h));
       hand.position.z = 0.12 + h * 0.2;
       hand.position.x = (i ? 1 : -1) * (0.36 + h * 0.08);
+      hand.position.y = H * 0.45;
       hand.visible = h > 0.02;
     });
 

@@ -11,6 +11,8 @@ export interface Intents {
   grab: boolean; // held
 }
 
+import type { TouchControls } from "./ui/touch";
+
 const DEADZONE = 0.18;
 
 export class Input {
@@ -23,6 +25,8 @@ export class Input {
   sensitivity = 0.0025;
   padLookSpeed = 3.2;
   onKey: (code: string) => void = () => {};
+  /** On-screen controls (touch devices). */
+  touch: TouchControls | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     addEventListener("keydown", (e) => {
@@ -66,6 +70,11 @@ export class Input {
   readLook(dt: number) {
     const out = { ...this.look };
     this.look.x = this.look.y = 0;
+    if (this.touch) {
+      out.x += this.touch.state.lookX;
+      out.y += this.touch.state.lookY;
+      this.touch.state.lookX = this.touch.state.lookY = 0;
+    }
     const pad = activePad();
     if (pad) {
       out.x += dz(pad.axes[2] ?? 0) * this.padLookSpeed * dt;
@@ -82,6 +91,18 @@ export class Input {
     let jump = this.jumpLatch;
     let dive = this.diveLatch;
     let grab = this.mouseGrab || k("KeyE");
+
+    const ts = this.touch?.state;
+    if (ts) {
+      if (ts.moveX || ts.moveY) {
+        moveX = ts.moveX;
+        moveY = ts.moveY;
+      }
+      jump ||= ts.jump;
+      dive ||= ts.dive;
+      grab ||= ts.grab;
+      ts.jump = ts.dive = false;
+    }
 
     const pad = activePad();
     if (pad) {

@@ -51,6 +51,14 @@ export const TUNING = {
     slideOff: 2.5, // sideways push off the head so nobody can be pinned by endless bounces (m/s)
     minNormalY: 0.55, // how "on top" the contact must be (1 = straight down)
   },
+  clump: {
+    minClosing: 10.5, // head-on closing speed (m/s) that makes two Wobblers stick (dive into dive always does)
+    time: 1.5, // how long they stay stuck (s)
+    mashCount: 3, // jump presses to wriggle free early
+    control: 0.4, // fraction of run speed you still steer with
+    pop: 4.5, // how hard they spring apart at the end (m/s)
+    cooldown: 1.2, // no new clump for this long after one ends (s)
+  },
   bump: {
     shove: 1.6, // walking into someone nudges them
     tackleMul: 0.8, // dive tackle transfers this fraction of the diver's velocity

@@ -81,3 +81,67 @@ li .total { min-width: 44px; text-align: right; }
 #show-podium h1 { font-size: 46px; margin: 4px 0; }
 #show-podium li:first-child { font-size: 20px; background: #ffe156aa; }
 #room li .stars { margin-left: auto; padding-left: 10px; color: #c78a00; }
+
+/* ───────── Look picker ───────── */
+.look { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.look-styles { display: flex; gap: 8px; }
+.menu button.look-style { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px 10px 6px; border-width: 3px; border-radius: 16px; box-shadow: 0 3px 0 #3a2450; font-size: 12px; background: #fff; opacity: 0.6; }
+.menu button.look-style.on { opacity: 1; background: #ffe15666; }
+.look-colors { display: flex; gap: 6px; }
+.menu button.look-color { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 3px solid #3a2450; box-shadow: 0 2px 0 #3a2450; }
+.menu button.look-color.on { transform: scale(1.25); box-shadow: 0 0 0 3px #fff, 0 0 0 5px #3a2450; }
+
+/* ───────── Settings ───────── */
+#settings-open { position: fixed; right: 12px; top: 12px; width: 42px; height: 42px; border-radius: 50%; border: 3px solid #3a2450; background: #fff8fb; color: #3a2450; font-size: 22px; line-height: 1; box-shadow: 0 3px 0 #3a2450; cursor: pointer; z-index: 5; }
+#show-toasts { top: 66px !important; }
+#settings { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(440px, 94vw); max-height: 88vh; overflow: auto; padding: 18px 24px; z-index: 7; }
+.settings-head { display: flex; align-items: center; justify-content: space-between; }
+.settings-head h2 { margin: 0; color: #ff4f8b; font-size: 28px; }
+.settings-head button, .settings-foot button { font: inherit; font-weight: 800; border: 3px solid #3a2450; border-radius: 12px; background: #fff; color: #3a2450; padding: 4px 12px; box-shadow: 0 3px 0 #3a2450; cursor: pointer; }
+#settings h3 { margin: 14px 0 4px; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.6; }
+.set-row { display: grid; grid-template-columns: 150px 1fr 52px; align-items: center; gap: 10px; padding: 4px 0; font-weight: 700; }
+.set-row.check { grid-template-columns: 1fr auto; }
+.set-row b { text-align: right; font-size: 13px; }
+.set-row input[type="range"] { accent-color: #ff4f8b; }
+.set-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: #ff4f8b; }
+.set-row select { grid-column: span 2; font: inherit; font-weight: 700; padding: 4px 8px; border: 2px solid #3a2450; border-radius: 10px; }
+.settings-foot { margin-top: 14px; border-top: 2px dashed #3a245033; padding-top: 10px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.settings-foot .keys { margin: 0; font-size: 12px; line-height: 1.6; text-align: center; }
+#settings-leave { background: #ffd6e0 !important; }
+.ctp-hint { font-size: 13px !important; opacity: 0.6; margin-top: 6px !important; }
+
+/* ───────── Awards ───────── */
+#podium-awards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.award { display: flex; flex-direction: column; padding: 8px 10px; border: 3px solid #3a2450; border-radius: 14px; background: #fff; text-align: left; animation: pop-in 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes pop-in { from { transform: scale(0.3); opacity: 0; } }
+.award:nth-child(2) { animation-delay: 0.15s; } .award:nth-child(3) { animation-delay: 0.3s; } .award:nth-child(4) { animation-delay: 0.45s; }
+.award.me { background: #ffe156aa; }
+.award-title { color: #ff4f8b; font-size: 15px; }
+.award-who { font-weight: 800; }
+.award-text { font-size: 12px; opacity: 0.75; }
+
+/* ───────── Fail Cam ───────── */
+#failcam { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+#failcam .bar { position: absolute; left: 0; right: 0; height: 9vh; background: #1a1024; animation: bars 0.35s ease-out both; }
+#failcam .bar.top { top: 0; } #failcam .bar.bottom { bottom: 0; }
+@keyframes bars { from { height: 0; } }
+.failcam-tag { position: absolute; left: 24px; bottom: calc(9vh + 14px); display: flex; flex-direction: column; gap: 2px; padding: 8px 16px; background: #ff4f5e; color: #fff; border: 3px solid #3a2450; border-radius: 14px; box-shadow: 0 4px 0 #3a2450; transform: rotate(-2deg); animation: pop-in 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.failcam-tag b { font-size: 26px; letter-spacing: 2px; }
+.failcam-tag span { font-weight: 800; font-size: 16px; }
+
+/* ───────── Touch ───────── */
+#touch-zone { position: fixed; inset: 0; z-index: 1; touch-action: none; }
+#touch-stick { position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 4px solid #ffffffaa; background: #3a245033; z-index: 2; pointer-events: none; }
+#touch-knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; border-radius: 50%; background: #fff; border: 4px solid #3a2450; transform: translate(-50%, -50%); }
+.tbtn { position: fixed; z-index: 2; border-radius: 50%; border: 4px solid #3a2450; background: #fff8fbdd; color: #3a2450; font: 800 14px "Trebuchet MS", system-ui, sans-serif; box-shadow: 0 4px 0 #3a2450; touch-action: none; width: 68px; height: 68px; }
+.tbtn.down { transform: translateY(3px); box-shadow: 0 1px 0 #3a2450; background: #ffe156; }
+.tbtn.big { width: 92px; height: 92px; right: 24px; bottom: 34px; font-size: 18px; background: #ff4f8bdd; color: #fff; }
+#touch-dive { right: 128px; bottom: 30px; }
+#touch-grab { right: 40px; bottom: 140px; }
+.tbtn.gremlin { right: 130px; bottom: 120px; width: 84px; height: 84px; background: #9b6bff; color: #fff; font-size: 12px; }
+body.touch #help, body.touch #perf { display: none; }
+body.touch #show-spectate { bottom: 150px; }
+
+/* Desktop app: which game server to use */
+.server-row { font-size: 13px; opacity: 0.85; }
+.server-row input { font-size: 14px; }

@@ -18,8 +18,10 @@ export const DT = 1 / TICK_RATE;
 
 /** Capsule: total height 1.0 m (2 × (HALF + RADIUS)). Body position = capsule centre. */
 export const WOBBLER_RADIUS = 0.38;
-export const WOBBLER_HALF = 0.12;
+export const WOBBLER_HALF = 0.245;
 export const WOBBLER_CENTER = WOBBLER_HALF + WOBBLER_RADIUS; // centre height above the feet
+/** Full height of a Wobbler, feet to the top of the head. */
+export const WOBBLER_HEIGHT = WOBBLER_CENTER * 2;
 /** Hard cap on horizontal speed (m/s). */
 export const MAX_SPEED = 25;
 /** Hard cap on upward speed from knockback (m/s). */
@@ -62,6 +64,8 @@ export interface NetState {
   invulnerable: boolean;
   holding: number | null;
   heldBy: number | null;
+  /** Stuck in a Jelly Clump. */
+  clumped: boolean;
 }
 
 /** Interaction aimed at a Wobbler this Sim does not own. `from` is the Wobbler that caused it. */
@@ -71,7 +75,8 @@ export type NetMsg =
   | { k: "grab"; from: number; target: number }
   | { k: "release"; from: number; target: number }
   | { k: "mash"; from: number; target: number }
-  | { k: "drop"; from: number; target: number };
+  | { k: "drop"; from: number; target: number }
+  | { k: "clump"; from: number; target: number };
 
 export interface Wobbler {
   id: number;
@@ -95,6 +100,11 @@ export interface Wobbler {
   jumpPressedAt: number;
   jumpedSinceGround: boolean;
   diveReadyAt: number;
+  /** Jelly Clump partner, until when, jump presses so far, and when the next clump may start. */
+  clumpWith: number | null;
+  clumpUntil: number;
+  clumpMash: number;
+  clumpReadyAt: number;
 
   grabbing: boolean; // grab button held (hands out)
   holding: number | null;
@@ -131,7 +141,8 @@ export type SimEvent =
   | { type: "hazardHit"; id: number; hazard: number; force: number }
   | { type: "ballHit"; id: number; force: number }
   | { type: "fall"; id: number }
-  | { type: "respawn"; id: number };
+  | { type: "respawn"; id: number }
+  | { type: "clump"; id: number; target: number };
 
 interface HazardRuntime {
   def: HazardDef;
@@ -267,6 +278,10 @@ export class Sim {
       jumpPressedAt: -Infinity,
       jumpedSinceGround: false,
       diveReadyAt: 0,
+      clumpWith: null,
+      clumpUntil: 0,
+      clumpMash: 0,
+      clumpReadyAt: 0,
       grabbing: false,
       holding: null,
       heldBy: null,
@@ -438,6 +453,10 @@ export class Sim {
         if (target.holding !== m.from) return false;
         target.holdTime += TUNING.grab.mashBreak;
         return true;
+      case "clump":
+        if (!from || !this.canClump(target)) return false;
+        this.startClump(target, m.from);
+        return true;
       case "drop":
         if (target.holding !== m.from) return false;
         target.holding = null;
@@ -483,6 +502,7 @@ export class Sim {
       if (w.holding != null) speed *= T.grab.holdSlowdown;
       if (t < w.squashedUntil) speed *= T.stomp.squashSlow;
       speed *= w.speedMul;
+      if (w.clumpWith != null) speed *= T.clump.control;
       let accel: number;
       if (w.grounded) {
         accel = hasInput ? T.move.groundAccel : T.move.groundDecel;
@@ -502,9 +522,11 @@ export class Sim {
       moveTowardXZ(w.vel, 0, 0, friction * iceMul * DT);
     }
 
+    if (w.clumpWith != null) this.updateClump(w, input);
+
     // ── Jump (buffer + coyote time)
-    if (input.jump) w.jumpPressedAt = t;
-    if (w.state === "normal") {
+    if (input.jump && w.clumpWith == null) w.jumpPressedAt = t;
+    if (w.state === "normal" && w.clumpWith == null) {
       const canJump = !w.jumpedSinceGround && (w.grounded || t - w.lastGroundedAt <= T.jump.coyoteTime);
       if (canJump && t - w.jumpPressedAt <= T.jump.bufferTime) {
         w.vel.y = jumpVelocity();
@@ -516,7 +538,7 @@ export class Sim {
     }
 
     // ── Dive
-    if (input.dive && w.state === "normal" && t >= w.diveReadyAt) {
+    if (input.dive && w.state === "normal" && t >= w.diveReadyAt && w.clumpWith == null) {
       this.release(w, false);
       const fx = Math.sin(w.facing);
       const fz = Math.cos(w.facing);
@@ -599,6 +621,12 @@ export class Sim {
     }
 
     const next = { x: w.pos.x + mv.x, y: w.pos.y + mv.y, z: w.pos.z + mv.z };
+    // Standing still, the controller lets the capsule creep into the floor a few mm per second; once it
+    // overlaps, Rapier refuses every move. Lift it back to rest height (plus the controller offset).
+    if (w.grounded) {
+      const down = this.world.castRay(new RAPIER.Ray(next, { x: 0, y: -1, z: 0 }), WOBBLER_CENTER + 0.05, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, undefined, w.collider);
+      if (down && down.timeOfImpact < WOBBLER_CENTER + 0.01) next.y += WOBBLER_CENTER + 0.015 - down.timeOfImpact;
+    }
     w.body.setNextKinematicTranslation(next);
 
     // ── Ground info & landing
@@ -756,8 +784,83 @@ export class Sim {
     this.events.push({ type: "stomp", id: w.id, target: other.id, boosted });
   }
 
+  private canClump(w: Wobbler) {
+    return (w.state === "normal" || w.state === "dive" || w.state === "slide") && w.clumpWith == null && w.heldBy == null && w.holding == null && this.time >= w.clumpReadyAt && this.time >= w.invulnUntil;
+  }
+
+  private startClump(w: Wobbler, partner: number) {
+    w.clumpWith = partner;
+    w.clumpUntil = this.time + TUNING.clump.time;
+    w.clumpMash = 0;
+    if (w.state !== "normal") this.setState(w, "normal");
+  }
+
+  /** Two jelly Wobblers hitting hard stick together (DESIGN.md §3.6 Jelly Clump). */
+  private tryClump(w: Wobbler, other: Wobbler): boolean {
+    const C = TUNING.clump;
+    const otherFree = this.isRemote(other)
+      ? !!other.net && !other.net.clumped && !other.net.invulnerable && ["normal", "dive", "slide"].includes(other.net.state) && other.heldBy == null
+      : this.canClump(other);
+    if (!this.canClump(w) || !otherFree) return false;
+    const dx = other.pos.x - w.pos.x;
+    const dz = other.pos.z - w.pos.z;
+    const d = Math.hypot(dx, dz) || 1;
+    const closing = ((w.vel.x - other.vel.x) * dx + (w.vel.z - other.vel.z) * dz) / d;
+    const bothDiving = w.state === "dive" && (this.isRemote(other) ? other.net!.state : other.state) === "dive";
+    if (!bothDiving && closing < C.minClosing) return false;
+    this.startClump(w, other.id);
+    if (this.isRemote(other)) this.outbox.push({ k: "clump", from: w.id, target: other.id });
+    else this.startClump(other, w.id);
+    this.events.push({ type: "clump", id: w.id, target: other.id });
+    return true;
+  }
+
+  private endClump(w: Wobbler, pop: boolean) {
+    const partner = this.get(w.clumpWith);
+    w.clumpWith = null;
+    w.clumpReadyAt = this.time + TUNING.clump.cooldown;
+    if (pop && partner) {
+      const dx = w.pos.x - partner.pos.x;
+      const dz = w.pos.z - partner.pos.z;
+      const d = Math.hypot(dx, dz) || 1;
+      w.vel.x += (dx / d) * TUNING.clump.pop;
+      w.vel.z += (dz / d) * TUNING.clump.pop;
+      w.vel.y = Math.max(w.vel.y, 3.5);
+      w.grounded = false;
+    }
+  }
+
+  /** Stuck together: share velocity, hold a fixed gap, wriggle free with jump presses. */
+  private updateClump(w: Wobbler, input: InputFrame) {
+    const C = TUNING.clump;
+    const p = this.get(w.clumpWith);
+    const t = this.time;
+    const partnerStuck = p && (this.isRemote(p) ? (p.net?.clumped ?? false) || t < w.clumpUntil - C.time + 0.4 : p.clumpWith === w.id);
+    const gone = !p || !partnerStuck || p.state === "out" || p.state === "held" || w.state !== "normal";
+    if (input.jump) w.clumpMash++;
+    if (gone || t >= w.clumpUntil || w.clumpMash >= C.mashCount || Math.hypot(p.pos.x - w.pos.x, p.pos.z - w.pos.z) > 3) {
+      this.endClump(w, !gone);
+      return;
+    }
+    const pv = p.vel;
+    const k = 0.25;
+    w.vel.x += ((w.vel.x + pv.x) / 2 - w.vel.x) * k;
+    w.vel.z += ((w.vel.z + pv.z) / 2 - w.vel.z) * k;
+    const dx = p.pos.x - w.pos.x;
+    const dz = p.pos.z - w.pos.z;
+    const d = Math.hypot(dx, dz) || 1;
+    const gap = WOBBLER_RADIUS * 2 - 0.08;
+    const spring = clamp((d - gap) * 6, -4, 4);
+    w.vel.x += (dx / d) * spring * DT * 10;
+    w.vel.z += (dz / d) * spring * DT * 10;
+    // Roll around each other a little: the blob spins.
+    w.facing += DT * 5;
+  }
+
   private bump(w: Wobbler, other: Wobbler) {
     if (other.state === "out" || other.state === "held") return;
+    if (w.clumpWith === other.id) return;
+    if (this.tryClump(w, other)) return;
     // Diving, or still belly-sliding fast, into someone is a tackle.
     if (w.state === "dive" || (w.state === "slide" && lenXZ(w.vel) > 3)) {
       const T = TUNING.bump;

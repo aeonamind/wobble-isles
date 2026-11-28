@@ -14,6 +14,9 @@ import {
   GREMLIN_COOLDOWN,
   PHASE_TIME,
   leaderOf,
+  pickAwards,
+  type Award,
+  type StatKey,
   pickFinal,
   pickFinalists,
   planShow,
@@ -71,6 +74,8 @@ export class ShowRunner {
   crown: Crown | null = null;
   champion: number | null = null;
   podium: number[] | null = null;
+  awards: Award[] | null = null;
+  private statsById = new Map<number, Partial<Record<StatKey, number>>>();
   results: ResultRow[] | null = null;
   private leaderAtStart: number | null = null;
   private bonus = new Map<number, number>();
@@ -115,6 +120,8 @@ export class ShowRunner {
     this.index = 0;
     this.champion = null;
     this.podium = null;
+    this.awards = null;
+    this.statsById.clear();
     this.nextRound();
     return true;
   }
@@ -354,6 +361,7 @@ export class ShowRunner {
         this.dirty = true;
       } else {
         this.points.set(c.holder, (this.points.get(c.holder) ?? 0) + DT);
+        this.bump(c.holder, "crownTime", DT);
         c.pos = { x: n.pos.x, y: n.pos.y + 1.15, z: n.pos.z };
         return;
       }
@@ -414,6 +422,21 @@ export class ShowRunner {
     }
   }
 
+  private bump(id: number, k: StatKey, by = 1) {
+    if (this.phase === "lobby") return;
+    const st = this.statsById.get(id) ?? {};
+    st[k] = (st[k] ?? 0) + by;
+    this.statsById.set(id, st);
+  }
+
+  /** A player's own sim event (uploaded and validated by the room). Feeds the awards. */
+  onEvent(e: { type: string; id: number }) {
+    if (this.phase !== "play") return;
+    const map: Record<string, StatKey> = { tackle: "tackles", stomp: "stomps", fall: "falls", throw: "throws", hazardHit: "hazardHits", grab: "grabs" };
+    const k = map[e.type];
+    if (k) this.bump(e.id, k);
+  }
+
   /** A routed interaction (from the room). Used for the Bounty Crown. */
   onInteraction(m: NetMsg) {
     if (this.phase !== "play" || m.target !== this.leaderAtStart) return;
@@ -423,6 +446,7 @@ export class ShowRunner {
   private awardBounty(by: number) {
     if (!this.host.playerIds().includes(by) || this.bonus.has(by)) return;
     this.bonus.set(by, 1);
+    this.bump(by, "bounties");
     this.lastHit.clear();
     this.toast(`${this.host.nameOf(by)} took down the leader! Bounty +1★`);
   }
@@ -513,6 +537,8 @@ export class ShowRunner {
       .filter((id) => !finalists.includes(id) && this.host.playerIds().includes(id))
       .sort((a, b) => this.stars.get(b)! - this.stars.get(a)!);
     this.podium = [...finalists, ...rest];
+    const present = new Map([...this.statsById].filter(([id]) => this.host.playerIds().includes(id)));
+    this.awards = pickAwards(present);
     if (this.champion != null) this.toast(`${this.host.nameOf(this.champion)} is the Show Champion!`);
     this.setPhase("podium", secs(PHASE_TIME.podium));
   }
@@ -543,6 +569,7 @@ export class ShowRunner {
       results: this.results,
       champion: this.champion,
       podium: this.podium,
+      awards: this.phase === "podium" ? this.awards : null,
       extra: this.extra,
       toasts: this.toasts,
     };

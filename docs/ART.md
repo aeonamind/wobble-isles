@@ -111,6 +111,13 @@ These will be validated with a simulator in M4, and adjusted if any pair collide
 - **Key screens:** Title, Lobby (with playground), Round Intro Card (name, one-sentence rule, looping preview, category icon), in-round HUD (timer, objective, qualifier counter or stars), Round Results (Fail Cam and stars tally), Final Podium, Settings.
 - **Accessibility:** UI scale setting, colour-blind safe palette, subtitles for announcer lines, remappable controls.
 
+### 6.1 Key art
+
+`client/keyart.html` (dev only, not in the build) stages the cast with the game's own models and renders the key art:
+`npm run dev`, open `http://localhost:5180/keyart.html?w=1920&h=1080` (`&text=0` drops the title), screenshot once `window.keyartReady` is true.
+Randomness is seeded, so the same URL gives the same picture. The loading screen uses the `text=0` render at 1280×720 (`client/public/loading.jpg`, ~65 KB).
+Re-render it whenever the Wobbler look changes.
+
 ## 7. VFX
 
 - Every interaction gets feedback: dust puffs on landing, a splat ring on hard landing, star bursts on hits, a stretchy "boing" ring on bouncers, snow and splash on falls.
